@@ -594,15 +594,15 @@ int ERROR_CALC()
     for (int i = 0; i < 8; i++)
     {
         value= irPanel[i]->getValue();
-        e_state=(value<500)? 1:0
+        e_state=(value<500)? 1:0;
         // calculate weighted error from IR panel data
         if (i < 4)
         {
-            error += ir_panel_values[i] * (4 - i) * 100;
+            error += e_state * (4 - i) * 100;
         }
         else
         {
-            error += ir_panel_values[i] * (3 - i) * 100;
+            error += e_state * (3 - i) * 100;
         }
     }
     if (error == 0)
