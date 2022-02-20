@@ -36,8 +36,8 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 25
-#define ARM_DISTANCE_BACKWARD 25
+#define ARM_DISTANCE_FORWARD 8
+#define ARM_DISTANCE_BACKWARD 8
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
@@ -316,7 +316,7 @@ int main(int argc, char **argv)
         wallSensors[i]->enable(TIME_STEP);
     }
 
-    laserSensors[RIGHT_LAS] = robot->getDistanceSensor(laserNames[i]);
+    laserSensors[RIGHT_LAS] = robot->getDistanceSensor(laserNames);
 
     compass = robot->getCompass("compass");
 
@@ -508,10 +508,10 @@ void TASK_MANAGER()
 float OBJECT_IR_READ(obIRSensors ir_sensor)
 {
     float value = obSensors[ir_sensor]->getValue();
-    float distance;
+    float distance = 0;
     bool far = true;
     float ir_lookup[7][2] = {{3, 3.03}, {6, 2.01}, {8, 1.55}, {10, 1.25}, {20, 0.66}, {30, 0.42}, {40, 0.31}};
-    float ir_lookup2[7][2] = {{0, 0}, {10, 666}, {15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
+    float ir_lookup2[8][2] = {{0, 0}, {10, 666}, {15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
 
     short int i = 0;
     if (ir_sensor == FRONT_IR_SHARP)
@@ -767,18 +767,18 @@ void WALL_FOLLOW()
                 GO_FORWARD(8);
                 double_turn = true;
             }
-            cout << "RIGHT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
+            // cout << "RIGHT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
             MINOR_CORRECTION_WALL(9);
             TURN_ANGLE(180);
-            GO_FORWARD(8, 1);
+            GO_FORWARD(5, 1);
             MINOR_CORRECTION_WALL();
             keep_position();
             turned = true;
             double_turn = false;
-            cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
+            // cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if (front_ds_value < limit_wall && right_ds_value < limit_wall)
         {
@@ -789,7 +789,7 @@ void WALL_FOLLOW()
             TURN_ANGLE(55);
             turned = true;
             double_turn = false;
-            cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
+            // cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else
         {
@@ -905,13 +905,13 @@ void GO_FORWARD(float distance, short int dir)
     double t_angle = abs(distance) / (wheel_radius * 100);
     if (!dir && distance > 0)
     {
-        right_speed = base_speed;
-        left_speed = base_speed;
+        right_speed = base_speed_fast;
+        left_speed = base_speed_fast;
     }
     else
     {
-        right_speed = -base_speed;
-        left_speed = -base_speed;
+        right_speed = -base_speed_fast;
+        left_speed = -base_speed_fast;
     }
 
     while (robot->step(TIME_STEP) != -1)
@@ -919,14 +919,11 @@ void GO_FORWARD(float distance, short int dir)
         lc_position = psSensors[psRightMotor]->getValue(), rc_position = psSensors[psLeftMotor]->getValue();
         if ((abs(lc_position - l_position) + abs(rc_position - r_position)) / 2 < t_angle)
         {
-            motors[LEFT]->setVelocity(left_speed);
-            motors[RIGHT]->setVelocity(right_speed);
+            SET_VELOCITY();
         }
         else
         {
-            left_speed = 0, right_speed = 0;
-            motors[LEFT]->setVelocity(0);
-            motors[RIGHT]->setVelocity(0);
+            STOP_ROBOT();
             return;
         }
     }
@@ -1168,7 +1165,7 @@ void ALIGN_TO_OBJECT(float distance)
         obSensors[i]->enable(TIME_STEP);
     }
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
-    int cofficient = 60;
+    int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
     {
         float front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
@@ -1380,8 +1377,8 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     // sensor intiation
-    obIRSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
-    laserSensors->enable(TIME_STEP);
+    obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+    laserSensors[RIGHT_LAS]->enable(TIME_STEP);
 
     float right_distance = 0;
     ALIGN_TO_DIR(WEST);
@@ -1402,12 +1399,13 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(80, 1);
+    TURN_ANGLE(85, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.5, 1);
-        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 90+GAP)
+        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 90)
         {
+            cout<<"checkpoint-1408"<<endl;
             break;
         }
     }
@@ -1416,7 +1414,7 @@ bool DETECT_OBJECT()
         GO_FORWARD(right_distance - 36);
     }
     // sensor termination
-    obIRSensors[FRONT_IR_SHARP]->disable();
+    obSensors[FRONT_IR_SHARP]->disable();
     laserSensors[RIGHT_LAS]->disable();
 
     return true;
