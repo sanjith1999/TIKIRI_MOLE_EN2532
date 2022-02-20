@@ -31,27 +31,31 @@ using namespace std;
 /* Variable Definitions */
 #define TIME_STEP 16
 #define MAX_SPEED 10
-#define CENTER_DISTANCE 18.5
-#define LEFT_CENTER_DISTANCE 18.5
+#define CENTER_DISTANCE 17
+#define LEFT_CENTER_DISTANCE 17.1
+#define WALL_LIMIT 20
+#define LEFT_DISTANCE 10
 #define DELAY_ARM 2
 #define ARM_DISTANCE_FORWARD 8
-#define ARM_DISTANCE_BACKWARD 7
+#define ARM_DISTANCE_BACKWARD 8
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
 #define CYLINDER_HOLE_ALIGN 9.5
 #define CUBE_HOLE_ALIGN -2.5
 
+#define GAP 20
+
 /* NAMES */
 string motorNames[8] = {"left_motor", "right_motor", "front_arm_motor", "back_arm_motor", "fl_slider", "fr_slider", "bl_slider", "br_slider"};
 string irNames[11] = {"ir1", "ir2", "ir3", "ir4", "ir5", "ir6", "ir7", "ir8"};
 string psNames[8] = {"ps_left_motor", "ps_right_motor", "farm_base_position", "fl_position", "fr_position", "barm_base_position", "bl_position", "br_position"};
 string camNames[4] = {"left_camera", "right_camera", "front_camera", "back_camera"};
-string wirNames[4] = {"front_ir", "left_ir", "right_ir", "right_ir2"};
-string laserNames[2] = {"front_ultra", "right_ultra"};
+string wirNames[4] = {"front_sonar", "left_sonar", "right_sonar", "right_sonar2"};
+string laserNames = "right_laser";
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
 string compassNames = {"compass"};
-string obIRNames[8] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object"};
+string obIRNames[9] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object", "front_ir_sharp"};
 string holeObject[3] = {"CYLINDER_CIRCLE", "CYLINDER_CURVED", "CUBE"};
 
 //------------------------------------------------------------------------------------------------------------------------------//
@@ -108,8 +112,7 @@ enum wallSonars
 
 enum laSensors
 {
-    FRONT_LAS = 0,
-    RIGHT_LAS
+    RIGHT_LAS = 0
 };
 
 enum Colors
@@ -132,7 +135,8 @@ enum obIRSensors
     FRONT_OBJECT,
     LEFT_OBJECT,
     RIGHT_OBJECT,
-    BACK_OBJECT
+    BACK_OBJECT,
+    FRONT_IR_SHARP
 };
 
 enum holeObjects
@@ -164,15 +168,12 @@ enum mainTask
 // Task variable
 mainTask CURRENT_TASK = LINE_FOLLOWING;
 
-// General Variables
-aStates back_arm_state = WITHOUT_OBJECT,
-        front_arm_state = WITHOUT_OBJECT;
-
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
 static double left_speed = 0;
 static double right_speed = 0;
+static float base_speed_fast = 9;
 static float base_speed = 6;
 static float base_speed_slow = 4;
 
@@ -203,10 +204,10 @@ Robot *robot = new Robot();
 DistanceSensor *irPanel[8]; // IR Panel values from left to right
 PositionSensor *psSensors[8];
 DistanceSensor *wallSensors[4];
-DistanceSensor *laserSensors[2];
+DistanceSensor *laserSensors[1];
 Camera *cams[2];
 Compass *compass;
-DistanceSensor *obSensors[8];
+DistanceSensor *obSensors[9];
 InertialUnit *i_unit;
 /* ACTUATORS */
 Motor *motors[8]; // Motor[0] is the left motor, Motor[1] is the right motor
@@ -219,8 +220,8 @@ float OBJECT_IR_READ(obIRSensors ir_sensor);
 float LASER_MAP(laSensors laser);
 float SONAR_MAP(wallSonars sonar);
 
-    // PROCESSING DATA RELATED FUNCTIONS
-    Colors COLOR_DETECTION(aCameras color_sensor);
+// PROCESSING DATA RELATED FUNCTIONS
+Colors COLOR_DETECTION(aCameras color_sensor);
 double READ_COMPASS();
 
 // MOTION RELATED FUNCTIONS
@@ -248,8 +249,8 @@ bool DETECT_OBJECT_ULTRA(int step = 0.5);
 // CORRECTION FUNCTIONS
 float APPROACH_VALUE(float c_value, float d_value, float a_step = 0.002);
 bool IN_RANGE(float a, float b);
-void MINOR_CORRECTION_WALL(float distance = 11);
-void FORWARD_CORRECTION(float dist = 25);
+void MINOR_CORRECTION_WALL(float distance = LEFT_DISTANCE);
+void FORWARD_CORRECTION(float dist = 21);
 
 // ROBOT ESSENTIAL FUNCTIONS
 double LIMIT(double &val);
@@ -315,14 +316,11 @@ int main(int argc, char **argv)
         wallSensors[i]->enable(TIME_STEP);
     }
 
-    for (int i = 0; i < 2; i++)
-    {
-        laserSensors[i] = robot->getDistanceSensor(laserNames[i]);
-    }
+    laserSensors[RIGHT_LAS] = robot->getDistanceSensor(laserNames);
 
     compass = robot->getCompass("compass");
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 9; i++)
     {
         obSensors[i] = robot->getDistanceSensor(obIRNames[i]);
     }
@@ -353,11 +351,20 @@ void TASK_MANAGER()
 
     case HOLE_TASK:
         compass->enable(TIME_STEP); // enabling compass
-        GO_FORWARD(20, 1);
+
+        GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
         maze_north = READ_COMPASS();
-        GO_FORWARD(20);
+
+        // sensor terminations : wall following sensors
+        for (int i = 0; i < 4; i++)
+        {
+            wallSensors[i]->disable();
+        }
+
+        GO_FORWARD(12);
         ALIGN_TO_DIR(NORTH);
+
         cout << "MAZE NORTH IS ASSIGNED TO :" << maze_north << endl;
         // minor adjustments before wall following
         for (;;)
@@ -370,7 +377,7 @@ void TASK_MANAGER()
                 break;
             }
         }
-        GO_FORWARD(10, 1);
+        GO_FORWARD(GAP, 1);
         TURN_ANGLE(30), GO_FORWARD(10);
         if (DETECT_OBJECT())
         {
@@ -501,23 +508,38 @@ void TASK_MANAGER()
 float OBJECT_IR_READ(obIRSensors ir_sensor)
 {
     float value = obSensors[ir_sensor]->getValue();
-    float distance;
+    float distance = 0;
     bool far = true;
-    float ir_lookup[7][2] = {{0.03, 3.03}, {0.06, 2.01}, {0.08, 1.55}, {0.1, 1.25}, {0.2, 0.66}, {0.3, 0.42}, {0.4, 0.31}};
+    float ir_lookup[7][2] = {{3, 3.03}, {6, 2.01}, {8, 1.55}, {10, 1.25}, {20, 0.66}, {30, 0.42}, {40, 0.31}};
+    float ir_lookup2[8][2] = {{0, 0}, {10, 666}, {15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
 
     short int i = 0;
-    while (i <= 5)
+    if (ir_sensor == FRONT_IR_SHARP)
     {
-        if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+        while (i <= 6)
         {
-            distance = ir_lookup[i][0] + (value - ir_lookup[i][1]) * (ir_lookup[i + 1][0] - ir_lookup[i][0]) / (ir_lookup[i + 1][1] - ir_lookup[i][1]);
-            far = false;
+            if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+            {
+                distance = ir_lookup2[i][0] + (value - ir_lookup2[i][1]) * (ir_lookup2[i + 1][0] - ir_lookup2[i][0]) / (ir_lookup2[i + 1][1] - ir_lookup2[i][1]);
+            }
+            i = i + 1;
         }
-        i = i + 1;
     }
-    if (far)
+    else
     {
-        distance = value > 3.03 ? ir_lookup[0][0] : ir_lookup[6][0];
+        while (i <= 5)
+        {
+            if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+            {
+                distance = ir_lookup[i][0] + (value - ir_lookup[i][1]) * (ir_lookup[i + 1][0] - ir_lookup[i][0]) / (ir_lookup[i + 1][1] - ir_lookup[i][1]);
+                far = false;
+            }
+            i = i + 1;
+        }
+        if (far)
+        {
+            distance = value > 3.03 ? ir_lookup[0][0] : ir_lookup[6][0];
+        }
     }
     return distance;
 }
@@ -659,7 +681,7 @@ void LINE_FOLLOW(bool dotted)
                 break;
             }
         }
-        else if (SONAR_MAP(LEFT_WALL) < 20 && SONAR_MAP(RIGHT_WALL) < 20)
+        else if (SONAR_MAP(LEFT_WALL) < 15 && SONAR_MAP(RIGHT_WALL) < 15)
         {
             cout << "LINE FOLLOWING COMPLETED SUCESSFULLY" << endl;
             break;
@@ -690,14 +712,20 @@ void LINE_FOLLOW(bool dotted)
 
 void WALL_FOLLOW()
 {
-    // sensor intialization
     bool turned = false, double_turn = false;
-    float limit_wall = 16;
-    float left_ds_value, right_ds_value, front_ds_value, right_ds_value2;
+    float limit_wall = WALL_LIMIT;
+    float left_ds_value = SONAR_MAP(LEFT_WALL), right_ds_value = SONAR_MAP(RIGHT_WALL), right_ds_value2 = SONAR_MAP(RIGHT_WALL2), front_ds_value = SONAR_MAP(FRONT_WALL);
 
-    GO_FORWARD(20);
+    auto keep_position = [&]()
+    {
+        if (right_ds_value2 < limit_wall && right_ds_value < limit_wall)
+        {
+            TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
+        }
+    };
+    GO_FORWARD(5);
+    keep_position();
     MINOR_CORRECTION_WALL();
-    TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
 
     while (robot->step(TIME_STEP) != -1)
     {
@@ -709,61 +737,63 @@ void WALL_FOLLOW()
         {
             break;
         }
-        if (right_ds_value2 < limit_wall && right_ds_value < limit_wall)
+        keep_position();
+        if (right_ds_value2 < limit_wall && right_ds_value < limit_wall && turned)
         {
-            TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
-            if (turned)
-            {
-                GO_FORWARD(3, 1);
-                MINOR_CORRECTION_WALL();
-                GO_FORWARD(3);
-                turned = false;
-            }
+            GO_FORWARD(3, 1);
+            MINOR_CORRECTION_WALL();
+            GO_FORWARD(3);
+            turned = false;
         }
 
         if (right_ds_value > limit_wall)
         {
-            GO_FORWARD(6);
-            TURN_ANGLE(30, 1);
-            GO_FORWARD();
-            TURN_ANGLE(60, 1);
-            GO_FORWARD(8);
             turned = true;
             if (double_turn)
             {
-                GO_FORWARD(4);
+                GO_FORWARD(5.5);
+                TURN_ANGLE(30, 1);
+                GO_FORWARD();
+                TURN_ANGLE(60, 1);
+                GO_FORWARD(12);
                 double_turn = false;
             }
             else
             {
+                GO_FORWARD(6);
+                TURN_ANGLE(30, 1);
+                GO_FORWARD();
+                TURN_ANGLE(60, 1);
+                GO_FORWARD(8);
                 double_turn = true;
             }
-            cout << "right turn :" << SONAR_MAP(RIGHT_WALL) * 100 << endl;
+            // cout << "RIGHT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
+            MINOR_CORRECTION_WALL(9);
+            TURN_ANGLE(180);
             GO_FORWARD(5, 1);
             MINOR_CORRECTION_WALL();
-            TURN_ANGLE(180);
-            GO_FORWARD(8, 1);
-            MINOR_CORRECTION_WALL();
+            keep_position();
             turned = true;
             double_turn = false;
-            cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) * 100 << endl;
+            // cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if (front_ds_value < limit_wall && right_ds_value < limit_wall)
         {
+            MINOR_CORRECTION_WALL();
             FORWARD_CORRECTION();
             TURN_ANGLE(30);
             GO_FORWARD(LEFT_CENTER_DISTANCE);
             TURN_ANGLE(55);
             turned = true;
             double_turn = false;
-            cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) * 100 << endl;
+            // cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else
         {
-            left_speed = base_speed, right_speed = base_speed;
+            left_speed = base_speed_fast, right_speed = base_speed_fast;
             SET_VELOCITY();
             double_turn = false;
         }
@@ -771,7 +801,7 @@ void WALL_FOLLOW()
     cout << "I AM GLAD THAT... I MAKE IT TO THE CMYK REGION" << endl;
     STOP_ROBOT();
     CLEAR_VARIABLES();
-    // sensor termination
+
     return;
 }
 
@@ -875,13 +905,13 @@ void GO_FORWARD(float distance, short int dir)
     double t_angle = abs(distance) / (wheel_radius * 100);
     if (!dir && distance > 0)
     {
-        right_speed = base_speed;
-        left_speed = base_speed;
+        right_speed = base_speed_fast;
+        left_speed = base_speed_fast;
     }
     else
     {
-        right_speed = -base_speed;
-        left_speed = -base_speed;
+        right_speed = -base_speed_fast;
+        left_speed = -base_speed_fast;
     }
 
     while (robot->step(TIME_STEP) != -1)
@@ -889,14 +919,11 @@ void GO_FORWARD(float distance, short int dir)
         lc_position = psSensors[psRightMotor]->getValue(), rc_position = psSensors[psLeftMotor]->getValue();
         if ((abs(lc_position - l_position) + abs(rc_position - r_position)) / 2 < t_angle)
         {
-            motors[LEFT]->setVelocity(left_speed);
-            motors[RIGHT]->setVelocity(right_speed);
+            SET_VELOCITY();
         }
         else
         {
-            left_speed = 0, right_speed = 0;
-            motors[LEFT]->setVelocity(0);
-            motors[RIGHT]->setVelocity(0);
+            STOP_ROBOT();
             return;
         }
     }
@@ -1138,11 +1165,11 @@ void ALIGN_TO_OBJECT(float distance)
         obSensors[i]->enable(TIME_STEP);
     }
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
-    int cofficient = 60;
+    int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
     {
         float front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
-        if (front < distance / 100 || left < distance / 100 || right < distance / 100)
+        if (front < distance || left < distance || right < distance)
         {
             break;
         }
@@ -1173,7 +1200,7 @@ void OBJECT_CONFIRMATION()
     if (object_state == 1 || object_state == 3)
     {
         BASE_ARM_SWAP(2, 1);
-        if (OBJECT_IR_READ(BACK_IR) < ARM_DISTANCE_BACKWARD / 100)
+        if (OBJECT_IR_READ(BACK_IR) < ARM_DISTANCE_BACKWARD)
         {
             SLIDER_ARM_MOVEMENT(1, 1);
         }
@@ -1185,7 +1212,7 @@ void OBJECT_CONFIRMATION()
     else if (object_state == 2 || object_state == 4)
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD / 100)
+        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT();
         }
@@ -1197,7 +1224,7 @@ void OBJECT_CONFIRMATION()
     else
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD / 100)
+        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT(1);
         }
@@ -1350,10 +1377,9 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     // sensor intiation
-    for (int i = 0; i < 2; i++)
-    {
-        laserSensors[i]->enable(TIME_STEP);
-    }
+    obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+    laserSensors[RIGHT_LAS]->enable(TIME_STEP);
+
     float right_distance = 0;
     ALIGN_TO_DIR(WEST);
     GO_FORWARD(5, 1);
@@ -1373,12 +1399,13 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(80, 1);
+    TURN_ANGLE(85, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.5, 1);
-        if (LASER_MAP(FRONT_LAS) < 75)
+        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 90)
         {
+            cout<<"checkpoint-1408"<<endl;
             break;
         }
     }
@@ -1387,10 +1414,8 @@ bool DETECT_OBJECT()
         GO_FORWARD(right_distance - 36);
     }
     // sensor termination
-    for (int i = 0; i < 2; i++)
-    {
-        laserSensors[i]->disable();
-    }
+    obSensors[FRONT_IR_SHARP]->disable();
+    laserSensors[RIGHT_LAS]->disable();
 
     return true;
 }
