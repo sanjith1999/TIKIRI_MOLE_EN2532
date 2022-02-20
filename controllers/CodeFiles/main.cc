@@ -36,8 +36,8 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 8
-#define ARM_DISTANCE_BACKWARD 7
+#define ARM_DISTANCE_FORWARD 25
+#define ARM_DISTANCE_BACKWARD 25
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
@@ -50,7 +50,7 @@ string irNames[11] = {"ir1", "ir2", "ir3", "ir4", "ir5", "ir6", "ir7", "ir8"};
 string psNames[8] = {"ps_left_motor", "ps_right_motor", "farm_base_position", "fl_position", "fr_position", "barm_base_position", "bl_position", "br_position"};
 string camNames[4] = {"left_camera", "right_camera", "front_camera", "back_camera"};
 string wirNames[4] = {"front_sonar", "left_sonar", "right_sonar", "right_sonar2"};
-string laserNames[2] = {"front_ultra", "right_ultra"};
+string laserNames[2] = {"front_laser", "right_laser"};
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
 string compassNames = {"compass"};
 string obIRNames[8] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object"};
@@ -737,7 +737,7 @@ void WALL_FOLLOW()
             turned = true;
             if (double_turn)
             {
-                GO_FORWARD(3);
+                GO_FORWARD(5.5);
                 TURN_ANGLE(30, 1);
                 GO_FORWARD();
                 TURN_ANGLE(60, 1);
@@ -753,14 +753,15 @@ void WALL_FOLLOW()
                 GO_FORWARD(8);
                 double_turn = true;
             }
-            cout << "right turn :" << SONAR_MAP(RIGHT_WALL) << endl;
+            cout << "RIGHT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
-            MINOR_CORRECTION_WALL();
+            MINOR_CORRECTION_WALL(8);
             TURN_ANGLE(180);
-            GO_FORWARD(5, 1);
+            GO_FORWARD(8, 1);
             MINOR_CORRECTION_WALL();
+            keep_position();
             turned = true;
             double_turn = false;
             cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
