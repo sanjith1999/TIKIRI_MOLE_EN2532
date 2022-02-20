@@ -353,7 +353,7 @@ void TASK_MANAGER()
     case HOLE_TASK:
         compass->enable(TIME_STEP); // enabling compass
         GO_FORWARD(20, 1);
-        TURN_ANGLE(asin((WALL_IR_READ(wallSensors[RIGHT_WALL2]) - WALL_IR_READ(wallSensors[RIGHT_WALL])) / 0.08) * 180 / 3.14);
+        TURN_ANGLE(asin((WALL_IR_READ(RIGHT_WALL2) - WALL_IR_READ(RIGHT_WALL)) / 0.08) * 180 / 3.14);
         maze_north = READ_COMPASS();
         GO_FORWARD(20);
         ALIGN_TO_DIR(NORTH);
@@ -362,7 +362,7 @@ void TASK_MANAGER()
         for (;;)
         {
             GO_FORWARD(3);
-            if (COLOR_DETECTION(RIGHT) == CYAN)
+            if (COLOR_DETECTION(RIGHT_CAMERA) == CYAN)
             {
                 cout << "REACHED CYAN AREA...." << endl;
                 STOP_ROBOT();
@@ -378,7 +378,7 @@ void TASK_MANAGER()
         ALIGN_TO_DIR(SOUTH);
         while (robot->step(TIME_STEP) != -1)
         {
-            if (COLOR_DETECTION(RIGHT) == MAGENTA)
+            if (COLOR_DETECTION(RIGHT_CAMERA) == MAGENTA)
             {
                 STOP_ROBOT();
                 break;
@@ -394,7 +394,7 @@ void TASK_MANAGER()
         ALIGN_TO_DIR(SOUTH);
         while (robot->step(TIME_STEP) != -1)
         {
-            if (COLOR_DETECTION(RIGHT) == MAGENTA || COLOR_DETECTION(LEFT) == MAGENTA)
+            if (COLOR_DETECTION(RIGHT_CAMERA) == MAGENTA || COLOR_DETECTION(LEFT_CAMERA) == MAGENTA)
             {
                 STOP_ROBOT();
                 break;
@@ -405,7 +405,7 @@ void TASK_MANAGER()
         ALIGN_TO_DIR(WEST);
         while (robot->step(TIME_STEP) != -1)
         {
-            if (COLOR_DETECTION(RIGHT) == BLACK || COLOR_DETECTION(LEFT) == YELLOW)
+            if (COLOR_DETECTION(RIGHT_CAMERA) == BLACK || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
             {
                 cout << "check Point" << endl;
                 STOP_ROBOT();
@@ -418,11 +418,11 @@ void TASK_MANAGER()
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
         // hole placing
-        laserValue = LASER_MAP(laserSensors[RIGHT_LAS]);
+        laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
             preValue = laserValue;
-            laserValue = LASER_MAP(laserSensors[RIGHT_LAS]);
+            laserValue = LASER_MAP(RIGHT_LAS);
             if (preValue - laserValue > 50)
             {
                 STOP_ROBOT();
@@ -457,11 +457,11 @@ void TASK_MANAGER()
         // push cube
         ALIGN_TO_DIR(SOUTH);
         GO_FORWARD(3);
-        laserValue = LASER_MAP(laserSensors[RIGHT_LAS]);
+        laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
             preValue = laserValue;
-            laserValue = LASER_MAP(laserSensors[RIGHT_LAS]);
+            laserValue = LASER_MAP(RIGHT_LAS);
             if (preValue - laserValue > 5)
             {
                 STOP_ROBOT();
@@ -491,6 +491,7 @@ void TASK_MANAGER()
         LINE_FOLLOW(true);
         CURRENT_TASK = KICK_BALL;
     case KICK_BALL:
+        cout<<"All the tasks have been completed"<<endl;
     }
     return;
 }
@@ -533,14 +534,14 @@ Colors COLOR_DETECTION(aCameras color_sensor)
     Colors color;
     const unsigned char *image = cams[color_sensor]->getImage();
     // take hight and width of the image
-    int width = color_sensor->getWidth();
-    int height = color_sensor->getHeight();
+    int width = cams[color_sensor]->getWidth();
+    int height = cams[color_sensor]->getHeight();
 
     // detect colours
     // check the center pixel of the image
-    int r = color_sensor->imageGetRed(image, width, (int)(width / 2), (int)(height / 2));
-    int g = color_sensor->imageGetGreen(image, width, (int)(width / 2), (int)(height / 2));
-    int b = color_sensor->imageGetBlue(image, width, (int)(width / 2), (int)(height / 2));
+    int r = cams[color_sensor]->imageGetRed(image, width, (int)(width / 2), (int)(height / 2));
+    int g = cams[color_sensor]->imageGetGreen(image, width, (int)(width / 2), (int)(height / 2));
+    int b = cams[color_sensor]->imageGetBlue(image, width, (int)(width / 2), (int)(height / 2));
 
     // Determine threshold
     float threshold = bright_scale_factor * 18;
@@ -593,7 +594,7 @@ int ERROR_CALC()
     for (int i = 0; i < 8; i++)
     {
         value= irPanel[i]->getValue();
-        e_state=(value<750)? 1:0
+        e_state=(value<500)? 1:0
         // calculate weighted error from IR panel data
         if (i < 4)
         {
