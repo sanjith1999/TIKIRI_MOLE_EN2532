@@ -218,12 +218,11 @@ float WALL_IR_READ(wallIRs ir_sensor);
 float LASER_MAP(laSensors sonar);
 
 // PROCESSING DATA RELATED FUNCTIONS
-vector<int> READ_IR_PANEL();
 Colors COLOR_DETECTION(aCameras color_sensor);
 double READ_COMPASS();
 
 // MOTION RELATED FUNCTIONS
-int ERROR_CALC(vector<int> ir_panel_values);
+int ERROR_CALC();
 void LINE_FOLLOW(bool dotted = false);
 void WALL_FOLLOW();
 void ALIGN_TO_DIR(directions destination = NORTH);
@@ -528,26 +527,6 @@ float LASER_MAP(laSensors sonar)
 }
 
 // PROCESSING SENSOR DATA RELATED FUNCTIONS
-vector<int> READ_IR_PANEL()
-{
-    // Returns data from IR panel as an array
-    vector<int> ir_panel_values;
-    int value;
-
-    for (int i = 0; i < 8; i++)
-    {
-        value = irPanel[i]->getValue();
-        if (value < 750)
-        {
-            ir_panel_values.push_back(1);
-        }
-        else
-        {
-            ir_panel_values.push_back(0);
-        }
-    }
-    return ir_panel_values;
-}
 
 Colors COLOR_DETECTION(aCameras color_sensor)
 {
@@ -608,11 +587,13 @@ double READ_COMPASS()
 }
 
 // MOTION RELATED FUNCTIONS
-int ERROR_CALC(vector<int> ir_panel_values)
+int ERROR_CALC()
 {
-    int error = 0;
+    int error = 0,value=0,e_state=0;
     for (int i = 0; i < 8; i++)
     {
+        value= irPanel[i]->getValue();
+        e_state=(value<750)? 1:0
         // calculate weighted error from IR panel data
         if (i < 4)
         {
@@ -675,7 +656,7 @@ void LINE_FOLLOW(bool dotted)
             cout << "LINE FOLLOWING COMPLETED SUCESSFULLY" << endl;
             break;
         }
-        error = ERROR_CALC(READ_IR_PANEL());
+        error = ERROR_CALC();
         P = error;
         D = error - last_error;
         I = I + error;
