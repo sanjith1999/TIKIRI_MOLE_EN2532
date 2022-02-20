@@ -594,7 +594,7 @@ int ERROR_CALC()
     for (int i = 0; i < 8; i++)
     {
         value= irPanel[i]->getValue();
-        e_state=(value<500)? 1:0;
+        e_state=(value<100)? 1:0;
         // calculate weighted error from IR panel data
         if (i < 4)
         {
@@ -667,7 +667,7 @@ void LINE_FOLLOW(bool dotted)
             I = 0;
         }
         double correction = (kd * D + kp * P + ki * I) / 80;
-        left_speed = base_speed - correction + acceleration, right_speed = base_speed + correction + acceleration;
+        left_speed = base_speed + correction + acceleration, right_speed = base_speed - correction + acceleration;
         SET_VELOCITY();
     }
 
