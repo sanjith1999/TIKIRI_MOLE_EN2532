@@ -44,16 +44,18 @@ using namespace std;
 #define CYLINDER_HOLE_ALIGN 9.5
 #define CUBE_HOLE_ALIGN -2.5
 
+#define GAP 20
+
 /* NAMES */
 string motorNames[8] = {"left_motor", "right_motor", "front_arm_motor", "back_arm_motor", "fl_slider", "fr_slider", "bl_slider", "br_slider"};
 string irNames[11] = {"ir1", "ir2", "ir3", "ir4", "ir5", "ir6", "ir7", "ir8"};
 string psNames[8] = {"ps_left_motor", "ps_right_motor", "farm_base_position", "fl_position", "fr_position", "barm_base_position", "bl_position", "br_position"};
 string camNames[4] = {"left_camera", "right_camera", "front_camera", "back_camera"};
 string wirNames[4] = {"front_sonar", "left_sonar", "right_sonar", "right_sonar2"};
-string laserNames[2] = {"front_laser", "right_laser"};
+string laserNames = "right_laser";
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
 string compassNames = {"compass"};
-string obIRNames[8] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object"};
+string obIRNames[9] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object", "front_ir_sharp"};
 string holeObject[3] = {"CYLINDER_CIRCLE", "CYLINDER_CURVED", "CUBE"};
 
 //------------------------------------------------------------------------------------------------------------------------------//
@@ -110,8 +112,7 @@ enum wallSonars
 
 enum laSensors
 {
-    FRONT_LAS = 0,
-    RIGHT_LAS
+    RIGHT_LAS = 0
 };
 
 enum Colors
@@ -134,7 +135,8 @@ enum obIRSensors
     FRONT_OBJECT,
     LEFT_OBJECT,
     RIGHT_OBJECT,
-    BACK_OBJECT
+    BACK_OBJECT,
+    FRONT_IR_SHARP
 };
 
 enum holeObjects
@@ -202,10 +204,10 @@ Robot *robot = new Robot();
 DistanceSensor *irPanel[8]; // IR Panel values from left to right
 PositionSensor *psSensors[8];
 DistanceSensor *wallSensors[4];
-DistanceSensor *laserSensors[2];
+DistanceSensor *laserSensors[1];
 Camera *cams[2];
 Compass *compass;
-DistanceSensor *obSensors[8];
+DistanceSensor *obSensors[9];
 InertialUnit *i_unit;
 /* ACTUATORS */
 Motor *motors[8]; // Motor[0] is the left motor, Motor[1] is the right motor
@@ -314,14 +316,11 @@ int main(int argc, char **argv)
         wallSensors[i]->enable(TIME_STEP);
     }
 
-    for (int i = 0; i < 2; i++)
-    {
-        laserSensors[i] = robot->getDistanceSensor(laserNames[i]);
-    }
+    laserSensors[RIGHT_LAS] = robot->getDistanceSensor(laserNames[i]);
 
     compass = robot->getCompass("compass");
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 9; i++)
     {
         obSensors[i] = robot->getDistanceSensor(obIRNames[i]);
     }
@@ -356,13 +355,13 @@ void TASK_MANAGER()
         GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
         maze_north = READ_COMPASS();
-        
+
         // sensor terminations : wall following sensors
         for (int i = 0; i < 4; i++)
         {
             wallSensors[i]->disable();
         }
-        
+
         GO_FORWARD(12);
         ALIGN_TO_DIR(NORTH);
 
@@ -378,7 +377,7 @@ void TASK_MANAGER()
                 break;
             }
         }
-        GO_FORWARD(10, 1);
+        GO_FORWARD(GAP, 1);
         TURN_ANGLE(30), GO_FORWARD(10);
         if (DETECT_OBJECT())
         {
@@ -511,21 +510,36 @@ float OBJECT_IR_READ(obIRSensors ir_sensor)
     float value = obSensors[ir_sensor]->getValue();
     float distance;
     bool far = true;
-    float ir_lookup[7][2] = {{0.03, 3.03}, {0.06, 2.01}, {0.08, 1.55}, {0.1, 1.25}, {0.2, 0.66}, {0.3, 0.42}, {0.4, 0.31}};
+    float ir_lookup[7][2] = {{3, 3.03}, {6, 2.01}, {8, 1.55}, {10, 1.25}, {20, 0.66}, {30, 0.42}, {40, 0.31}};
+    float ir_lookup2[7][2] = {{0, 0}, {10, 666}, {15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
 
     short int i = 0;
-    while (i <= 5)
+    if (ir_sensor == FRONT_IR_SHARP)
     {
-        if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+        while (i <= 6)
         {
-            distance = ir_lookup[i][0] + (value - ir_lookup[i][1]) * (ir_lookup[i + 1][0] - ir_lookup[i][0]) / (ir_lookup[i + 1][1] - ir_lookup[i][1]);
-            far = false;
+            if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+            {
+                distance = ir_lookup2[i][0] + (value - ir_lookup2[i][1]) * (ir_lookup2[i + 1][0] - ir_lookup2[i][0]) / (ir_lookup2[i + 1][1] - ir_lookup2[i][1]);
+            }
+            i = i + 1;
         }
-        i = i + 1;
     }
-    if (far)
+    else
     {
-        distance = value > 3.03 ? ir_lookup[0][0] : ir_lookup[6][0];
+        while (i <= 5)
+        {
+            if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+            {
+                distance = ir_lookup[i][0] + (value - ir_lookup[i][1]) * (ir_lookup[i + 1][0] - ir_lookup[i][0]) / (ir_lookup[i + 1][1] - ir_lookup[i][1]);
+                far = false;
+            }
+            i = i + 1;
+        }
+        if (far)
+        {
+            distance = value > 3.03 ? ir_lookup[0][0] : ir_lookup[6][0];
+        }
     }
     return distance;
 }
@@ -757,7 +771,7 @@ void WALL_FOLLOW()
         }
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
-            MINOR_CORRECTION_WALL(8);
+            MINOR_CORRECTION_WALL(9);
             TURN_ANGLE(180);
             GO_FORWARD(8, 1);
             MINOR_CORRECTION_WALL();
@@ -1158,7 +1172,7 @@ void ALIGN_TO_OBJECT(float distance)
     while (robot->step(TIME_STEP) != -1)
     {
         float front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
-        if (front < distance / 100 || left < distance / 100 || right < distance / 100)
+        if (front < distance || left < distance || right < distance)
         {
             break;
         }
@@ -1189,7 +1203,7 @@ void OBJECT_CONFIRMATION()
     if (object_state == 1 || object_state == 3)
     {
         BASE_ARM_SWAP(2, 1);
-        if (OBJECT_IR_READ(BACK_IR) < ARM_DISTANCE_BACKWARD / 100)
+        if (OBJECT_IR_READ(BACK_IR) < ARM_DISTANCE_BACKWARD)
         {
             SLIDER_ARM_MOVEMENT(1, 1);
         }
@@ -1201,7 +1215,7 @@ void OBJECT_CONFIRMATION()
     else if (object_state == 2 || object_state == 4)
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD / 100)
+        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT();
         }
@@ -1213,7 +1227,7 @@ void OBJECT_CONFIRMATION()
     else
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD / 100)
+        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT(1);
         }
@@ -1366,10 +1380,8 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     // sensor intiation
-    for (int i = 0; i < 2; i++)
-    {
-        laserSensors[i]->enable(TIME_STEP);
-    }
+    obIRSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+    laserSensors->enable(TIME_STEP);
 
     float right_distance = 0;
     ALIGN_TO_DIR(WEST);
@@ -1394,7 +1406,7 @@ bool DETECT_OBJECT()
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.5, 1);
-        if (LASER_MAP(FRONT_LAS) < 75)
+        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 90+GAP)
         {
             break;
         }
@@ -1404,10 +1416,8 @@ bool DETECT_OBJECT()
         GO_FORWARD(right_distance - 36);
     }
     // sensor termination
-    for (int i = 0; i < 2; i++)
-    {
-        laserSensors[i]->disable();
-    }
+    obIRSensors[FRONT_IR_SHARP]->disable();
+    laserSensors[RIGHT_LAS]->disable();
 
     return true;
 }
