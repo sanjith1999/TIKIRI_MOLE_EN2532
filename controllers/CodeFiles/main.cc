@@ -340,14 +340,14 @@ void TASK_MANAGER()
 
     switch (CURRENT_TASK)
     {
-    case LINE_FOLLOWING:
+/*     case LINE_FOLLOWING:
         GO_FORWARD();
         LINE_FOLLOW();
         CURRENT_TASK = MAZE_SOLVE;
 
     case MAZE_SOLVE:
         WALL_FOLLOW();
-        CURRENT_TASK = HOLE_TASK;
+        CURRENT_TASK = HOLE_TASK; */
 
     case HOLE_TASK:
         compass->enable(TIME_STEP); // enabling compass
