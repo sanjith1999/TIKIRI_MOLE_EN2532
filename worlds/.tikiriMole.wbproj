@@ -6,6 +6,7 @@ maximizedDockId: -1
 centralWidgetVisible: 1
 orthographicViewHeight: 1
 textFiles: 0 "controllers/DebugStage/DebugStage.cpp"
+globalOptionalRendering: DistanceSensorRays
 centerOfMass: robot
 consoles: Console:All:All
 consoles: Console:All:All

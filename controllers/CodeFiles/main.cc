@@ -527,6 +527,7 @@ float LASER_MAP(laSensors sonar)
     return distance;
 }
 
+float 
 // PROCESSING SENSOR DATA RELATED FUNCTIONS
 
 Colors COLOR_DETECTION(aCameras color_sensor)
