@@ -36,13 +36,14 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 10
-#define ARM_DISTANCE_BACKWARD 12
+#define ARM_DISTANCE_FORWARD 9.5
+#define ARM_DISTANCE_BACKWARD 7.2
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
-#define CYLINDER_HOLE_ALIGN 9.5
-#define CUBE_HOLE_ALIGN -2.5
+#define CYLINDER_HOLE_ALIGN 9.8
+#define CUBE_HOLE_ALIGN -7.3
+#define HOLE_DEPTH 3
 
 #define GAP 20
 
@@ -341,14 +342,14 @@ void TASK_MANAGER()
 
     switch (CURRENT_TASK)
     {
-        /*     case LINE_FOLLOWING:
-                GO_FORWARD();
-                LINE_FOLLOW();
-                CURRENT_TASK = MAZE_SOLVE;
+    case LINE_FOLLOWING:
+        GO_FORWARD();
+        LINE_FOLLOW();
+        CURRENT_TASK = MAZE_SOLVE;
 
-            case MAZE_SOLVE:
-                WALL_FOLLOW();
-                CURRENT_TASK = HOLE_TASK; */
+    case MAZE_SOLVE:
+        WALL_FOLLOW();
+        CURRENT_TASK = HOLE_TASK;
 
     case HOLE_TASK:
         compass->enable(TIME_STEP); // enabling compass
@@ -417,9 +418,7 @@ void TASK_MANAGER()
         {
             if (COLOR_DETECTION(RIGHT_CAMERA) == BLACK || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
             {
-                cout << "check Point" << endl;
                 STOP_ROBOT();
-                DELAY(1000);
                 break;
             }
             left_speed = base_speed, right_speed = base_speed;
@@ -433,12 +432,13 @@ void TASK_MANAGER()
         {
             preValue = laserValue;
             laserValue = LASER_MAP(RIGHT_LAS);
-            if (preValue - laserValue > 50)
+            if (preValue - laserValue > HOLE_DEPTH)
             {
                 STOP_ROBOT();
                 GO_FORWARD(CYLINDER_HOLE_ALIGN);
                 ALIGN_TO_DIR(WEST);
-                GO_FORWARD(11.9);
+                GO_FORWARD(11.6);
+                DELAY(500);
                 break;
             }
             left_speed = base_speed, right_speed = base_speed;
@@ -446,52 +446,71 @@ void TASK_MANAGER()
         }
         BASE_ARM_SWAP(1);
         SLIDER_ARM_MOVEMENT(1);
+        DELAY(500);
         BASE_ARM_SWAP();
+        ALIGN_TO_DIR(WEST);
         // pushing the cylinder..........................
         for (int var = 0; var < 2; var++)
         {
-            DELAY(250);
+            DELAY(500);
             SLIDER_ARM_MOVEMENT(1);
             GO_FORWARD(0.75, 1);
             SLIDER_ARM_MOVEMENT();
-            DELAY(250);
-            GO_FORWARD(1);
+            DELAY(500);
+            GO_FORWARD(0.9);
         }
         SLIDER_ARM_MOVEMENT(1);
-        GO_FORWARD(5, 1);
+        GO_FORWARD(6, 1);
         SLIDER_ARM_MOVEMENT(2);
-        GO_FORWARD(7);
+        GO_FORWARD(7.5);
+        DELAY(500);
         GO_FORWARD(20, 1);
         BASE_ARM_SWAP(2);
 
         // push cube
         ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(3);
+        GO_FORWARD(6);
+        DELAY();
         laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
             preValue = laserValue;
             laserValue = LASER_MAP(RIGHT_LAS);
-            if (preValue - laserValue > 5)
+            if (preValue - laserValue > HOLE_DEPTH)
             {
-                STOP_ROBOT();
-                GO_FORWARD(CUBE_HOLE_ALIGN);
-                ALIGN_TO_DIR(EAST);
-                GO_FORWARD(17, 1);
-                break;
+                GO_FORWARD(1.3);
+                laserValue = LASER_MAP(RIGHT_LAS);
+                if (preValue - laserValue > HOLE_DEPTH)
+                {
+                    STOP_ROBOT();
+                    GO_FORWARD(CUBE_HOLE_ALIGN);
+                    ALIGN_TO_DIR(EAST);
+                    GO_FORWARD(17.5, 1);
+                    break;
+                }
+                else
+                {
+                    continue;
+                }
             }
-            left_speed = base_speed, right_speed = base_speed;
+            left_speed = base_speed_slow, right_speed = base_speed_slow;
             SET_VELOCITY();
         }
         BASE_ARM_SWAP(1, 1);
         SLIDER_ARM_MOVEMENT(1, 1);
+        DELAY(500);
         BASE_ARM_SWAP(0, 1);
         SLIDER_ARM_MOVEMENT(0, 1);
         ALIGN_TO_DIR(EAST);
         SLIDER_ARM_MOVEMENT(1, 1);
-        GO_FORWARD(8);
+        GO_FORWARD(8.5);
+        DELAY(500);
         SLIDER_ARM_MOVEMENT(2, 1);
-        GO_FORWARD(11.5, 1);
+        GO_FORWARD(11, 1);
+        GO_FORWARD(10);
+        BASE_ARM_SWAP(2, 1);
+
+        cout << "Check-point 501" << endl;
 
         CURRENT_TASK = BALL_PICK;
 
@@ -1024,9 +1043,9 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
             }
             else if (f_position == 1)
             {
-                if (abs(b_b_position + 0.8) > 0.06)
+                if (abs(b_b_position + 1.1) > 0.06)
                 {
-                    motors[BACK_ARM_BASE]->setPosition(APPROACH_VALUE(b_b_position, -0.8, 0.08));
+                    motors[BACK_ARM_BASE]->setPosition(APPROACH_VALUE(b_b_position, -1.1, 0.08));
                 }
                 else
                 {
@@ -1132,8 +1151,8 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
                 }
                 else
                 {
-                    motors[BACK_ARM_LEFT]->setPosition(APPROACH_VALUE(bl_s_position, -0.1));
-                    motors[BACK_ARM_RIGHT]->setPosition(APPROACH_VALUE(br_s_position, -0.017));
+                    motors[BACK_ARM_LEFT]->setPosition(APPROACH_VALUE(bl_s_position, -0.1, 0.001));
+                    motors[BACK_ARM_RIGHT]->setPosition(APPROACH_VALUE(br_s_position, -0.017, 0.001));
                     return;
                 }
             }
@@ -1206,6 +1225,8 @@ void ALIGN_TO_OBJECT(float distance)
 
 void OBJECT_CONFIRMATION()
 {
+    obSensors[FRONT_IR]->enable(robot->step(TIME_STEP) != -1);
+    obSensors[BACK_IR]->enable(robot->step(TIME_STEP) != -1);
     if (object_state == 1 || object_state == 3)
     {
         BASE_ARM_SWAP(2, 1);
@@ -1242,6 +1263,8 @@ void OBJECT_CONFIRMATION()
             object_state = -1;
         }
     }
+    obSensors[FRONT_IR]->disable();
+    obSensors[BACK_IR]->disable();
     return;
 }
 
@@ -1406,7 +1429,7 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(80, 1);
+    TURN_ANGLE(77, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.5, 1);
