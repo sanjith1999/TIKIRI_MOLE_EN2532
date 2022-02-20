@@ -47,7 +47,7 @@ string motorNames[8] = {"left_motor", "right_motor", "front_arm_motor", "back_ar
 string irNames[11] = {"ir1", "ir2", "ir3", "ir4", "ir5", "ir6", "ir7", "ir8"};
 string psNames[8] = {"ps_left_motor", "ps_right_motor", "farm_base_position", "fl_position", "fr_position", "barm_base_position", "bl_position", "br_position"};
 string camNames[4] = {"left_camera", "right_camera", "front_camera", "back_camera"};
-string wirNames[4] = {"front_ir", "left_ir", "right_ir", "right_ir2"};
+string wirNames[4] = {"front_sonar", "left_sonar", "right_sonar", "right_sonar2"};
 string laserNames[2] = {"front_ultra", "right_ultra"};
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
 string compassNames = {"compass"};
@@ -164,10 +164,6 @@ enum mainTask
 // Task variable
 mainTask CURRENT_TASK = LINE_FOLLOWING;
 
-// General Variables
-aStates back_arm_state = WITHOUT_OBJECT,
-        front_arm_state = WITHOUT_OBJECT;
-
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -219,8 +215,8 @@ float OBJECT_IR_READ(obIRSensors ir_sensor);
 float LASER_MAP(laSensors laser);
 float SONAR_MAP(wallSonars sonar);
 
-    // PROCESSING DATA RELATED FUNCTIONS
-    Colors COLOR_DETECTION(aCameras color_sensor);
+// PROCESSING DATA RELATED FUNCTIONS
+Colors COLOR_DETECTION(aCameras color_sensor);
 double READ_COMPASS();
 
 // MOTION RELATED FUNCTIONS
@@ -248,8 +244,8 @@ bool DETECT_OBJECT_ULTRA(int step = 0.5);
 // CORRECTION FUNCTIONS
 float APPROACH_VALUE(float c_value, float d_value, float a_step = 0.002);
 bool IN_RANGE(float a, float b);
-void MINOR_CORRECTION_WALL(float distance = 11);
-void FORWARD_CORRECTION(float dist = 25);
+void MINOR_CORRECTION_WALL(float distance = 9);
+void FORWARD_CORRECTION(float dist = 20);
 
 // ROBOT ESSENTIAL FUNCTIONS
 double LIMIT(double &val);
@@ -659,7 +655,7 @@ void LINE_FOLLOW(bool dotted)
                 break;
             }
         }
-        else if (SONAR_MAP(LEFT_WALL) < 20 && SONAR_MAP(RIGHT_WALL) < 20)
+        else if (SONAR_MAP(LEFT_WALL) < 15 && SONAR_MAP(RIGHT_WALL) < 15)
         {
             cout << "LINE FOLLOWING COMPLETED SUCESSFULLY" << endl;
             break;
@@ -692,7 +688,7 @@ void WALL_FOLLOW()
 {
     // sensor intialization
     bool turned = false, double_turn = false;
-    float limit_wall = 16;
+    float limit_wall = 20;
     float left_ds_value, right_ds_value, front_ds_value, right_ds_value2;
 
     GO_FORWARD(20);
@@ -738,7 +734,7 @@ void WALL_FOLLOW()
             {
                 double_turn = true;
             }
-            cout << "right turn :" << SONAR_MAP(RIGHT_WALL) * 100 << endl;
+            cout << "right turn :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
@@ -759,7 +755,7 @@ void WALL_FOLLOW()
             TURN_ANGLE(55);
             turned = true;
             double_turn = false;
-            cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) * 100 << endl;
+            cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else
         {
