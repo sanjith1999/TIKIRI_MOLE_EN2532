@@ -31,8 +31,10 @@ using namespace std;
 /* Variable Definitions */
 #define TIME_STEP 16
 #define MAX_SPEED 10
-#define CENTER_DISTANCE 16.5
-#define LEFT_CENTER_DISTANCE 17.2
+#define CENTER_DISTANCE 17
+#define LEFT_CENTER_DISTANCE 17.1
+#define WALL_LIMIT 20
+#define LEFT_DISTANCE 10
 #define DELAY_ARM 2
 #define ARM_DISTANCE_FORWARD 8
 #define ARM_DISTANCE_BACKWARD 7
@@ -245,8 +247,8 @@ bool DETECT_OBJECT_ULTRA(int step = 0.5);
 // CORRECTION FUNCTIONS
 float APPROACH_VALUE(float c_value, float d_value, float a_step = 0.002);
 bool IN_RANGE(float a, float b);
-void MINOR_CORRECTION_WALL(float distance = 10);
-void FORWARD_CORRECTION(float dist = 22);
+void MINOR_CORRECTION_WALL(float distance = LEFT_DISTANCE);
+void FORWARD_CORRECTION(float dist = 21);
 
 // ROBOT ESSENTIAL FUNCTIONS
 double LIMIT(double &val);
@@ -350,11 +352,20 @@ void TASK_MANAGER()
 
     case HOLE_TASK:
         compass->enable(TIME_STEP); // enabling compass
-        GO_FORWARD(20, 1);
+
+        GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
         maze_north = READ_COMPASS();
-        GO_FORWARD(20);
+        
+        // sensor terminations : wall following sensors
+        for (int i = 0; i < 4; i++)
+        {
+            wallSensors[i]->disable();
+        }
+        
+        GO_FORWARD(12);
         ALIGN_TO_DIR(NORTH);
+
         cout << "MAZE NORTH IS ASSIGNED TO :" << maze_north << endl;
         // minor adjustments before wall following
         for (;;)
@@ -687,20 +698,20 @@ void LINE_FOLLOW(bool dotted)
 
 void WALL_FOLLOW()
 {
-    // sensor intialization
     bool turned = false, double_turn = false;
-    float limit_wall = 20;
-    float left_ds_value, right_ds_value, front_ds_value, right_ds_value2;
+    float limit_wall = WALL_LIMIT;
+    float left_ds_value = SONAR_MAP(LEFT_WALL), right_ds_value = SONAR_MAP(RIGHT_WALL), right_ds_value2 = SONAR_MAP(RIGHT_WALL2), front_ds_value = SONAR_MAP(FRONT_WALL);
 
-    GO_FORWARD(10);
-    MINOR_CORRECTION_WALL();
-    auto keep_position = []()
+    auto keep_position = [&]()
     {
         if (right_ds_value2 < limit_wall && right_ds_value < limit_wall)
         {
             TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
         }
-    }
+    };
+    GO_FORWARD(5);
+    keep_position();
+    MINOR_CORRECTION_WALL();
 
     while (robot->step(TIME_STEP) != -1)
     {
@@ -712,6 +723,7 @@ void WALL_FOLLOW()
         {
             break;
         }
+        keep_position();
         if (right_ds_value2 < limit_wall && right_ds_value < limit_wall && turned)
         {
             GO_FORWARD(3, 1);
@@ -722,40 +734,39 @@ void WALL_FOLLOW()
 
         if (right_ds_value > limit_wall)
         {
-            keep_position();
-            GO_FORWARD(6);
-            TURN_ANGLE(30, 1);
-            GO_FORWARD();
-            TURN_ANGLE(60, 1);
-            GO_FORWARD(8);
             turned = true;
             if (double_turn)
             {
-                GO_FORWARD(4);
+                GO_FORWARD(3);
+                TURN_ANGLE(30, 1);
+                GO_FORWARD();
+                TURN_ANGLE(60, 1);
+                GO_FORWARD(12);
                 double_turn = false;
             }
             else
             {
+                GO_FORWARD(6);
+                TURN_ANGLE(30, 1);
+                GO_FORWARD();
+                TURN_ANGLE(60, 1);
+                GO_FORWARD(8);
                 double_turn = true;
             }
-            keep_position();
             cout << "right turn :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
             MINOR_CORRECTION_WALL();
-            keep_position();
             TURN_ANGLE(180);
             GO_FORWARD(5, 1);
             MINOR_CORRECTION_WALL();
             turned = true;
             double_turn = false;
-            keep_position();
             cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if (front_ds_value < limit_wall && right_ds_value < limit_wall)
         {
-            keep_position();
             MINOR_CORRECTION_WALL();
             FORWARD_CORRECTION();
             TURN_ANGLE(30);
@@ -763,7 +774,6 @@ void WALL_FOLLOW()
             TURN_ANGLE(55);
             turned = true;
             double_turn = false;
-            keep_position();
             cout << "LEFT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else
@@ -772,12 +782,11 @@ void WALL_FOLLOW()
             SET_VELOCITY();
             double_turn = false;
         }
-        count++;
     }
     cout << "I AM GLAD THAT... I MAKE IT TO THE CMYK REGION" << endl;
     STOP_ROBOT();
     CLEAR_VARIABLES();
-    // sensor termination
+
     return;
 }
 
