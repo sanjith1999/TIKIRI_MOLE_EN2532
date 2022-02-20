@@ -36,8 +36,8 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 8
-#define ARM_DISTANCE_BACKWARD 8
+#define ARM_DISTANCE_FORWARD 10
+#define ARM_DISTANCE_BACKWARD 12
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
@@ -166,7 +166,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = LINE_FOLLOWING;
+mainTask CURRENT_TASK = HOLE_TASK;
 
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
@@ -238,7 +238,7 @@ void BASE_ARM_SWAP(short int f_position = 0, short int c_arm = 0);
 void SLIDER_ARM_MOVEMENT(short int s_position = 0, short int c_arm = 0);
 
 // OBJECT PICKING-PLACING FUNCTIONS
-void ALIGN_TO_OBJECT(float distance = ARM_DISTANCE_FORWARD);
+void ALIGN_TO_OBJECT(float distance = 15);
 void OBJECT_CONFIRMATION();
 void PICK_OBJECT();
 holeObjects IDENTIFY_OBJECT();
@@ -324,6 +324,7 @@ int main(int argc, char **argv)
     {
         obSensors[i] = robot->getDistanceSensor(obIRNames[i]);
     }
+    obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
 
     i_unit = robot->getInertialUnit("inertial_unit");
 
@@ -340,17 +341,18 @@ void TASK_MANAGER()
 
     switch (CURRENT_TASK)
     {
-/*     case LINE_FOLLOWING:
-        GO_FORWARD();
-        LINE_FOLLOW();
-        CURRENT_TASK = MAZE_SOLVE;
+        /*     case LINE_FOLLOWING:
+                GO_FORWARD();
+                LINE_FOLLOW();
+                CURRENT_TASK = MAZE_SOLVE;
 
-    case MAZE_SOLVE:
-        WALL_FOLLOW();
-        CURRENT_TASK = HOLE_TASK; */
+            case MAZE_SOLVE:
+                WALL_FOLLOW();
+                CURRENT_TASK = HOLE_TASK; */
 
     case HOLE_TASK:
         compass->enable(TIME_STEP); // enabling compass
+        laserSensors[RIGHT_LAS]->enable(TIME_STEP);
 
         GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
@@ -492,9 +494,11 @@ void TASK_MANAGER()
         GO_FORWARD(11.5, 1);
 
         CURRENT_TASK = BALL_PICK;
-        compass->disable(); // disabling compass
+
     case BALL_PICK:
         CURRENT_TASK = REACH_END;
+        compass->disable(); // disabling compass
+        laserSensors[RIGHT_LAS]->disable();
     case REACH_END:
         LINE_FOLLOW(true);
         CURRENT_TASK = KICK_BALL;
@@ -511,18 +515,23 @@ float OBJECT_IR_READ(obIRSensors ir_sensor)
     float distance = 0;
     bool far = true;
     float ir_lookup[7][2] = {{3, 3.03}, {6, 2.01}, {8, 1.55}, {10, 1.25}, {20, 0.66}, {30, 0.42}, {40, 0.31}};
-    float ir_lookup2[8][2] = {{0, 0}, {10, 666}, {15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
+    float ir_lookup2[6][2] = {{15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
 
     short int i = 0;
     if (ir_sensor == FRONT_IR_SHARP)
     {
-        while (i <= 6)
+        while (i <= 4)
         {
-            if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
+            if ((ir_lookup2[i][1] >= value) && (value > ir_lookup2[i + 1][1]))
             {
                 distance = ir_lookup2[i][0] + (value - ir_lookup2[i][1]) * (ir_lookup2[i + 1][0] - ir_lookup2[i][0]) / (ir_lookup2[i + 1][1] - ir_lookup2[i][1]);
+                far = false;
             }
             i = i + 1;
+        }
+        if (far)
+        {
+            distance = value < 167 ? ir_lookup2[5][0] : ir_lookup2[0][0];
         }
     }
     else
@@ -1378,8 +1387,6 @@ bool DETECT_OBJECT()
 {
     // sensor intiation
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
-    laserSensors[RIGHT_LAS]->enable(TIME_STEP);
-
     float right_distance = 0;
     ALIGN_TO_DIR(WEST);
     GO_FORWARD(5, 1);
@@ -1399,13 +1406,12 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(85, 1);
+    TURN_ANGLE(80, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.5, 1);
-        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 90)
+        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 120)
         {
-            cout<<"checkpoint-1408"<<endl;
             break;
         }
     }
@@ -1415,7 +1421,6 @@ bool DETECT_OBJECT()
     }
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
-    laserSensors[RIGHT_LAS]->disable();
 
     return true;
 }
