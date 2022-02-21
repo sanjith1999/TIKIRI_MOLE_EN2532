@@ -37,11 +37,11 @@ using namespace std;
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
 #define ARM_DISTANCE_FORWARD 9.5
-#define ARM_DISTANCE_BACKWARD 7.2
+#define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
-#define CYLINDER_HOLE_ALIGN 2
+#define CYLINDER_HOLE_ALIGN -1.5
 #define CUBE_HOLE_ALIGN 2
 #define HOLE_DEPTH 3
 
@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 //------------------------------------------------------FUNCTION DEFINITIONS----------------------------------------------------//
 void TASK_MANAGER()
 {
-    float sonarValue = 0, preValue = 0;
+    float laserValue = 0, preValue = 0;
 
     switch (CURRENT_TASK)
     {
@@ -356,7 +356,8 @@ void TASK_MANAGER()
 
     case HOLE_TASK:
         // Hole task
-        compass->enable(TIME_STEP); // enabling compass
+        compass->enable(TIME_STEP);                 // enabling compass
+        laserSensors[RIGHT_LAS]->enable(TIME_STEP); // enabling laser sensor
 
         GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
@@ -412,18 +413,19 @@ void TASK_MANAGER()
         }
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
+        GO_FORWARD(10, 1);
         // HOLE RIGHT ALIGN RIGHT
-        sonarValue = SONAR_MAP(RIGHT_WALL);
+        laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
-            preValue = sonarValue;
-            sonarValue = SONAR_MAP(RIGHT_WALL);
-            if (sonarValue - preValue > HOLE_DEPTH)
+            preValue = laserValue;
+            laserValue = LASER_MAP(RIGHT_LAS);
+            if (laserValue - preValue > HOLE_DEPTH)
             {
                 STOP_ROBOT();
                 GO_FORWARD(CYLINDER_HOLE_ALIGN);
                 ALIGN_TO_DIR(WEST);
-                GO_FORWARD(11.6);
+                GO_FORWARD(12.2);
                 DELAY(500);
                 break;
             }
@@ -447,9 +449,9 @@ void TASK_MANAGER()
         }
         // NEDRI ADI
         SLIDER_ARM_MOVEMENT(1);
-        GO_FORWARD(6, 1);
+        GO_FORWARD(5, 1);
         SLIDER_ARM_MOVEMENT(2);
-        GO_FORWARD(7.5);
+        GO_FORWARD(7);
         DELAY(500);
         GO_FORWARD(15, 1);
         BASE_ARM_SWAP(2);
@@ -457,15 +459,17 @@ void TASK_MANAGER()
         // PUSH CUBE
         ALIGN_TO_DIR(SOUTH);
         GO_FORWARD(2);
-        sonarValue = SONAR_MAP(RIGHT_WALL);
+        laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
-            preValue = sonarValue;
-            sonarValue = SONAR_MAP(RIGHT_WALL);
-            if (sonarValue - preValue > HOLE_DEPTH)
+            preValue = laserValue;
+            laserValue = LASER_MAP(RIGHT_LAS);
+            if (laserValue - preValue > HOLE_DEPTH)
             {
+                cout<<"chekc-point 469"<<endl;
                 STOP_ROBOT();
                 GO_FORWARD(CUBE_HOLE_ALIGN);
+                cout<<"check-point 472"
                 ALIGN_TO_DIR(EAST);
                 GO_FORWARD(12.5, 1);
                 break;
@@ -494,7 +498,8 @@ void TASK_MANAGER()
 
     case BALL_PICK:
         CURRENT_TASK = REACH_END;
-        compass->disable(); // disabling compass
+        compass->disable();                 // disabling compass
+        laserSensors[RIGHT_LAS]->disable(); // diable laser sensor
     case REACH_END:
         LINE_FOLLOW(true);
         CURRENT_TASK = KICK_BALL;
@@ -975,9 +980,9 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
             }
             else if (f_position == 1)
             {
-                if (abs(f_b_position - 1) > 0.06)
+                if (abs(f_b_position - 1.05) > 0.06)
                 {
-                    motors[FRONT_ARM_BASE]->setPosition(APPROACH_VALUE(f_b_position, 1, 0.08));
+                    motors[FRONT_ARM_BASE]->setPosition(APPROACH_VALUE(f_b_position, 1.05, 0.08));
                 }
                 else
                 {
@@ -1386,7 +1391,6 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     // sensor intiation
-    laserSensors[RIGHT_LAS]->enable(TIME_STEP);
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
     float right_distance = 0;
     ALIGN_TO_DIR(WEST);
@@ -1400,7 +1404,6 @@ bool DETECT_OBJECT()
             ALIGN_TO_DIR(EAST);
             GO_FORWARD(30);
             obSensors[FRONT_IR_SHARP]->disable();
-            laserSensors[RIGHT_LAS]->disable();
             return ROUND_SEARCH();
         }
         if (right_distance < 80) // Typical wall distance 81
@@ -1426,7 +1429,6 @@ bool DETECT_OBJECT()
     }
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
-    laserSensors[RIGHT_LAS]->disable();
     return true;
 }
 
