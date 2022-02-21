@@ -41,7 +41,7 @@ using namespace std;
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
-#define CYLINDER_HOLE_ALIGN -1.2
+#define CYLINDER_HOLE_ALIGN -1.15
 #define CUBE_HOLE_ALIGN -4.4
 #define HOLE_DEPTH 3
 
@@ -51,7 +51,7 @@ using namespace std;
 string motorNames[8] = {"left_motor", "right_motor", "front_arm_motor", "back_arm_motor", "fl_slider", "fr_slider", "bl_slider", "br_slider"};
 string irNames[11] = {"ir1", "ir2", "ir3", "ir4", "ir5", "ir6", "ir7", "ir8"};
 string psNames[8] = {"ps_left_motor", "ps_right_motor", "farm_base_position", "fl_position", "fr_position", "barm_base_position", "bl_position", "br_position"};
-string camNames[4] = {"left_camera", "right_camera", "front_camera", "back_camera"};
+string camNames[3] = {"left_camera", "right_camera", "front_camera"};
 string wirNames[4] = {"front_sonar", "left_sonar", "right_sonar", "right_sonar2"};
 string laserNames = "right_laser";
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
@@ -98,9 +98,7 @@ enum aCameras
 {
     LEFT_CAMERA = 0,
     RIGHT_CAMERA,
-    FRONT_CAMERA,
-    BACK_CAMERA
-
+    FRONT_CAMERA
 };
 
 enum wallSonars
@@ -206,7 +204,7 @@ DistanceSensor *irPanel[8]; // IR Panel values from left to right
 PositionSensor *psSensors[8];
 DistanceSensor *wallSensors[4];
 DistanceSensor *laserSensors[1];
-Camera *cams[2];
+Camera *cams[3];
 Compass *compass;
 DistanceSensor *obSensors[9];
 InertialUnit *i_unit;
@@ -305,7 +303,7 @@ int main(int argc, char **argv)
         psSensors[i] = robot->getPositionSensor(psNames[i]);
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 3; i++)
     {
         psSensors[i]->enable(TIME_STEP);
         cams[i] = robot->getCamera(camNames[i]);
