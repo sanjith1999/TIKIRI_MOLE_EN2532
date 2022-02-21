@@ -41,11 +41,11 @@ using namespace std;
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
-#define CYLINDER_HOLE_ALIGN -1.5
-#define CUBE_HOLE_ALIGN 2
+#define CYLINDER_HOLE_ALIGN -1.2
+#define CUBE_HOLE_ALIGN -4.4
 #define HOLE_DEPTH 3
 
-#define GAP 20
+#define GAP 5
 
 /* NAMES */
 string motorNames[8] = {"left_motor", "right_motor", "front_arm_motor", "back_arm_motor", "fl_slider", "fr_slider", "bl_slider", "br_slider"};
@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = MAZE_SOLVE;
+mainTask CURRENT_TASK = LINE_FOLLOWING;
 
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
@@ -232,7 +232,7 @@ void WALL_FOLLOW();
 void ALIGN_TO_DIR(directions destination = NORTH);
 void TURN_90(short int dir = 0);
 void TURN_ANGLE(float angle = 45, short int dir = 0);
-void GO_FORWARD(float distance = CENTER_DISTANCE, short int dir = 0);
+void GO_FORWARD(float distance = CENTER_DISTANCE, short int dir = 0, float deceleration = 0);
 
 // ARM RELATED FUNCTIONS
 void BASE_ARM_SWAP(short int f_position = 0, short int c_arm = 0);
@@ -381,7 +381,7 @@ void TASK_MANAGER()
         // PICKING OBJECT
         while (object_state != 0)
         {
-            GO_FORWARD(GAP, 1);
+            GO_FORWARD(20, 1);
             TURN_ANGLE(30), GO_FORWARD(10);
             if (DETECT_OBJECT())
             {
@@ -429,7 +429,7 @@ void TASK_MANAGER()
                 DELAY(500);
                 break;
             }
-            left_speed = base_speed, right_speed = base_speed;
+            left_speed = base_speed_slow, right_speed = base_speed_slow;
             SET_VELOCITY();
         }
         BASE_ARM_SWAP(1);
@@ -451,14 +451,14 @@ void TASK_MANAGER()
         SLIDER_ARM_MOVEMENT(1);
         GO_FORWARD(5, 1);
         SLIDER_ARM_MOVEMENT(2);
-        GO_FORWARD(7);
+        GO_FORWARD(6.8, 0, 3);
         DELAY(500);
         GO_FORWARD(15, 1);
         BASE_ARM_SWAP(2);
 
         // PUSH CUBE
         ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(2);
+        GO_FORWARD(GAP);
         laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
@@ -466,17 +466,25 @@ void TASK_MANAGER()
             laserValue = LASER_MAP(RIGHT_LAS);
             if (laserValue - preValue > HOLE_DEPTH)
             {
-                cout<<"chekc-point 469"<<endl;
-                STOP_ROBOT();
-                GO_FORWARD(CUBE_HOLE_ALIGN);
-                cout<<"check-point 472"
-                ALIGN_TO_DIR(EAST);
-                GO_FORWARD(12.5, 1);
-                break;
+                for (int c = 0; c < 20; c++)
+                {
+                    right_speed = base_speed_slow, left_speed = base_speed_slow;
+                    SET_VELOCITY();
+                    robot->step(TIME_STEP);
+                }
+                laserValue = LASER_MAP(RIGHT_LAS);
+                if (laserValue - preValue > HOLE_DEPTH)
+                {
+                    STOP_ROBOT();
+                    GO_FORWARD(CUBE_HOLE_ALIGN);
+                    ALIGN_TO_DIR(EAST);
+                    GO_FORWARD(13.5, 1);
+                    break;
+                }
             }
+            right_speed = base_speed, left_speed = base_speed;
+            SET_VELOCITY();
         }
-        left_speed = base_speed, right_speed = base_speed;
-        SET_VELOCITY();
         // directional adjustment
         BASE_ARM_SWAP(1, 1);
         SLIDER_ARM_MOVEMENT(1, 1);
@@ -908,20 +916,20 @@ void TURN_ANGLE(float angle, short int dir)
     }
 };
 
-void GO_FORWARD(float distance, short int dir)
+void GO_FORWARD(float distance, short int dir, float deceleration)
 {
     /* dir : {forward, backward} */
     double l_position = psSensors[psRightMotor]->getValue(), r_position = psSensors[psLeftMotor]->getValue(), lc_position, rc_position;
     double t_angle = abs(distance) / (wheel_radius * 100);
     if (!dir && distance > 0)
     {
-        right_speed = base_speed_fast;
-        left_speed = base_speed_fast;
+        right_speed = base_speed - deceleration;
+        left_speed = base_speed - deceleration;
     }
     else
     {
-        right_speed = -base_speed_fast;
-        left_speed = -base_speed_fast;
+        right_speed = -base_speed + deceleration;
+        left_speed = -base_speed + deceleration;
     }
 
     while (robot->step(TIME_STEP) != -1)
@@ -1133,8 +1141,8 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
                 }
                 else
                 {
-                    motors[BACK_ARM_LEFT]->setPosition(APPROACH_VALUE(bl_s_position, -0.1, 0.003));
-                    motors[BACK_ARM_RIGHT]->setPosition(APPROACH_VALUE(br_s_position, -0.017, 0.003));
+                    motors[BACK_ARM_LEFT]->setPosition(APPROACH_VALUE(bl_s_position, -0.1,0.001));
+                    motors[BACK_ARM_RIGHT]->setPosition(APPROACH_VALUE(br_s_position, -0.017,0.001));
                     return;
                 }
             }
