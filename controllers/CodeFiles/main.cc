@@ -42,7 +42,7 @@ using namespace std;
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
 #define CYLINDER_HOLE_ALIGN 9.8
-#define CUBE_HOLE_ALIGN -7.3
+#define CUBE_HOLE_ALIGN -7.2
 #define HOLE_DEPTH 3
 
 #define GAP 20
@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = HOLE_TASK;
+mainTask CURRENT_TASK = LINE_FOLLOWING;
 
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
@@ -343,17 +343,19 @@ void TASK_MANAGER()
     switch (CURRENT_TASK)
     {
     case LINE_FOLLOWING:
+        // Line following task
         GO_FORWARD();
         LINE_FOLLOW();
         CURRENT_TASK = MAZE_SOLVE;
 
     case MAZE_SOLVE:
+        // Maze solving task
         WALL_FOLLOW();
         CURRENT_TASK = HOLE_TASK;
 
     case HOLE_TASK:
+        // Hole task
         compass->enable(TIME_STEP); // enabling compass
-        laserSensors[RIGHT_LAS]->enable(TIME_STEP);
 
         GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
@@ -364,13 +366,11 @@ void TASK_MANAGER()
         {
             wallSensors[i]->disable();
         }
-
+        // minor adjustment before assigning north
         GO_FORWARD(12);
         ALIGN_TO_DIR(NORTH);
 
         cout << "MAZE NORTH IS ASSIGNED TO :" << maze_north << endl;
-        // minor adjustments before wall following
-        for (;;)
         {
             GO_FORWARD(3);
             if (COLOR_DETECTION(RIGHT_CAMERA) == CYAN)
@@ -380,39 +380,28 @@ void TASK_MANAGER()
                 break;
             }
         }
-        GO_FORWARD(GAP, 1);
-        TURN_ANGLE(30), GO_FORWARD(10);
-        if (DETECT_OBJECT())
+        // PICKING OBJECT
+        while (object_state != 0)
         {
-            PICK_OBJECT();
-        }
-        ALIGN_TO_DIR(SOUTH);
-        while (robot->step(TIME_STEP) != -1)
-        {
-            if (COLOR_DETECTION(RIGHT_CAMERA) == MAGENTA)
+            GO_FORWARD(GAP, 1);
+            TURN_ANGLE(30), GO_FORWARD(10);
+            if (DETECT_OBJECT())
             {
-                STOP_ROBOT();
-                break;
+                PICK_OBJECT();
             }
-            left_speed = base_speed, right_speed = base_speed;
-            SET_VELOCITY();
-        }
-        GO_FORWARD(10);
-        if (DETECT_OBJECT())
-        {
-            PICK_OBJECT();
-        }
-        ALIGN_TO_DIR(SOUTH);
-        while (robot->step(TIME_STEP) != -1)
-        {
-            if (COLOR_DETECTION(RIGHT_CAMERA) == MAGENTA || COLOR_DETECTION(LEFT_CAMERA) == MAGENTA)
+            ALIGN_TO_DIR(NORTH);
+            while (robot->step(TIME_STEP) != -1)
             {
-                STOP_ROBOT();
-                break;
+                if (COLOR_DETECTION(RIGHT_CAMERA) == MAGENTA)
+                {
+                    STOP_ROBOT();
+                    break;
+                }
+                left_speed = -base_speed, right_speed = -base_speed;
+                SET_VELOCITY();
             }
-            left_speed = base_speed_slow, right_speed = base_speed_slow;
-            SET_VELOCITY();
         }
+        // GOING FOR PLACING OBJECT
         ALIGN_TO_DIR(WEST);
         while (robot->step(TIME_STEP) != -1)
         {
@@ -426,13 +415,13 @@ void TASK_MANAGER()
         }
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
-        // hole placing
-        laserValue = LASER_MAP(RIGHT_LAS);
+        // HOLE RIGHT ALIGN RIGHT
+        sonarValue = SONAR_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
         {
-            preValue = laserValue;
-            laserValue = LASER_MAP(RIGHT_LAS);
-            if (preValue - laserValue > HOLE_DEPTH)
+            preValue = sonarValue;
+            sonarValue = LASER_MAP(RIGHT_WALL);
+            if (sonarValue - preValue > HOLE_DEPTH)
             {
                 STOP_ROBOT();
                 GO_FORWARD(CYLINDER_HOLE_ALIGN);
@@ -449,7 +438,7 @@ void TASK_MANAGER()
         DELAY(500);
         BASE_ARM_SWAP();
         ALIGN_TO_DIR(WEST);
-        // pushing the cylinder..........................
+        // ALIGNING CYLINDER LITTLE BY LITTLE
         for (int var = 0; var < 2; var++)
         {
             DELAY(500);
@@ -459,72 +448,64 @@ void TASK_MANAGER()
             DELAY(500);
             GO_FORWARD(0.9);
         }
+        // NEDRI ADI
         SLIDER_ARM_MOVEMENT(1);
         GO_FORWARD(6, 1);
         SLIDER_ARM_MOVEMENT(2);
         GO_FORWARD(7.5);
         DELAY(500);
-        GO_FORWARD(20, 1);
+        GO_FORWARD(15, 1);
         BASE_ARM_SWAP(2);
 
-        // push cube
+        // PUSH CUBE
         ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(6);
-        DELAY();
-        laserValue = LASER_MAP(RIGHT_LAS);
+        GO_FORWARD(2);
+        sonarValue = SONAR_MAP(RIGHT_WALL);
         while (robot->step(TIME_STEP) != -1)
         {
-            preValue = laserValue;
-            laserValue = LASER_MAP(RIGHT_LAS);
-            if (preValue - laserValue > HOLE_DEPTH)
+            preValue = sonarValue;
+            sonarValue = SONAR_MAP(RIGHT_WALL);
+            if (sonarValue-preValue > HOLE_DEPTH)
             {
-                GO_FORWARD(1.3);
-                laserValue = LASER_MAP(RIGHT_LAS);
-                if (preValue - laserValue > HOLE_DEPTH)
-                {
-                    STOP_ROBOT();
-                    GO_FORWARD(CUBE_HOLE_ALIGN);
-                    ALIGN_TO_DIR(EAST);
-                    GO_FORWARD(17.5, 1);
-                    break;
-                }
-                else
-                {
-                    continue;
-                }
+                STOP_ROBOT();
+                GO_FORWARD(CUBE_HOLE_ALIGN);
+                ALIGN_TO_DIR(EAST);
+                GO_FORWARD(12.5, 1);
+                break;
             }
-            left_speed = base_speed_slow, right_speed = base_speed_slow;
-            SET_VELOCITY();
         }
-        BASE_ARM_SWAP(1, 1);
-        SLIDER_ARM_MOVEMENT(1, 1);
-        DELAY(500);
-        BASE_ARM_SWAP(0, 1);
-        SLIDER_ARM_MOVEMENT(0, 1);
-        ALIGN_TO_DIR(EAST);
-        SLIDER_ARM_MOVEMENT(1, 1);
-        GO_FORWARD(8.5);
-        DELAY(500);
-        SLIDER_ARM_MOVEMENT(2, 1);
-        GO_FORWARD(11, 1);
-        GO_FORWARD(10);
-        BASE_ARM_SWAP(2, 1);
-
-        cout << "Check-point 501" << endl;
-
-        CURRENT_TASK = BALL_PICK;
-
-    case BALL_PICK:
-        CURRENT_TASK = REACH_END;
-        compass->disable(); // disabling compass
-        laserSensors[RIGHT_LAS]->disable();
-    case REACH_END:
-        LINE_FOLLOW(true);
-        CURRENT_TASK = KICK_BALL;
-    case KICK_BALL:
-        cout << "All the tasks have been completed" << endl;
+        left_speed = base_speed, right_speed = base_speed;
+        SET_VELOCITY();
     }
-    return;
+    //directional adjustment
+    BASE_ARM_SWAP(1, 1);
+    SLIDER_ARM_MOVEMENT(1, 1);
+    DELAY(500);
+    BASE_ARM_SWAP(0, 1);
+    SLIDER_ARM_MOVEMENT(0, 1);
+    ALIGN_TO_DIR(EAST);
+
+    // STRAIGHT PUSH
+    SLIDER_ARM_MOVEMENT(1, 1);
+    GO_FORWARD(8.5);
+    DELAY(500);
+    SLIDER_ARM_MOVEMENT(2, 1);
+    GO_FORWARD(11, 1);
+    GO_FORWARD(10);
+    BASE_ARM_SWAP(2, 1);
+
+    CURRENT_TASK = BALL_PICK;
+
+case BALL_PICK:
+    CURRENT_TASK = REACH_END;
+    compass->disable(); // disabling compass
+case REACH_END:
+    LINE_FOLLOW(true);
+    CURRENT_TASK = KICK_BALL;
+case KICK_BALL:
+    cout << "All the tasks have been completed" << endl;
+}
+return;
 }
 
 // SENSOR MODELLING FUNCTIONS
@@ -1409,6 +1390,7 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     // sensor intiation
+    laserSensors[RIGHT_LAS]->enable(TIME_STEP);
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
     float right_distance = 0;
     ALIGN_TO_DIR(WEST);
@@ -1444,7 +1426,7 @@ bool DETECT_OBJECT()
     }
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
-
+    laserSensors[RIGHT_LAS]->disable();
     return true;
 }
 
