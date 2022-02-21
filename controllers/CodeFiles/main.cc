@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = LINE_FOLLOWING;
+mainTask CURRENT_TASK = MAZE_SOLVE;
 
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 //------------------------------------------------------FUNCTION DEFINITIONS----------------------------------------------------//
 void TASK_MANAGER()
 {
-    float laserValue = 0, preValue = 0;
+    float sonarValue = 0, preValue = 0;
 
     switch (CURRENT_TASK)
     {
@@ -372,6 +372,7 @@ void TASK_MANAGER()
         ALIGN_TO_DIR(NORTH);
 
         cout << "MAZE NORTH IS ASSIGNED TO :" << maze_north << endl;
+        while (robot->step(TIME_STEP) != -1)
         {
             GO_FORWARD(3);
             if (COLOR_DETECTION(RIGHT_CAMERA) == CYAN)
@@ -417,11 +418,11 @@ void TASK_MANAGER()
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
         // HOLE RIGHT ALIGN RIGHT
-        sonarValue = SONAR_MAP(RIGHT_LAS);
+        sonarValue = SONAR_MAP(RIGHT_WALL);
         while (robot->step(TIME_STEP) != -1)
         {
             preValue = sonarValue;
-            sonarValue = LASER_MAP(RIGHT_WALL);
+            sonarValue = SONAR_MAP(RIGHT_WALL);
             if (sonarValue - preValue > HOLE_DEPTH)
             {
                 STOP_ROBOT();
