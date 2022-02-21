@@ -41,8 +41,8 @@ using namespace std;
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
-#define CYLINDER_HOLE_ALIGN 9.8
-#define CUBE_HOLE_ALIGN -7.2
+#define CYLINDER_HOLE_ALIGN 2
+#define CUBE_HOLE_ALIGN 2
 #define HOLE_DEPTH 3
 
 #define GAP 20
@@ -246,6 +246,7 @@ holeObjects IDENTIFY_OBJECT();
 void ALIGN_TO_CYLINDER();
 bool DETECT_OBJECT();
 bool DETECT_OBJECT_ULTRA(int step = 0.5);
+bool ROUND_SEARCH();
 
 // CORRECTION FUNCTIONS
 float APPROACH_VALUE(float c_value, float d_value, float a_step = 0.002);
@@ -465,7 +466,7 @@ void TASK_MANAGER()
         {
             preValue = sonarValue;
             sonarValue = SONAR_MAP(RIGHT_WALL);
-            if (sonarValue-preValue > HOLE_DEPTH)
+            if (sonarValue - preValue > HOLE_DEPTH)
             {
                 STOP_ROBOT();
                 GO_FORWARD(CUBE_HOLE_ALIGN);
@@ -476,36 +477,35 @@ void TASK_MANAGER()
         }
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
+        // directional adjustment
+        BASE_ARM_SWAP(1, 1);
+        SLIDER_ARM_MOVEMENT(1, 1);
+        DELAY(500);
+        BASE_ARM_SWAP(0, 1);
+        SLIDER_ARM_MOVEMENT(0, 1);
+        ALIGN_TO_DIR(EAST);
+
+        // STRAIGHT PUSH
+        SLIDER_ARM_MOVEMENT(1, 1);
+        GO_FORWARD(8.5);
+        DELAY(500);
+        SLIDER_ARM_MOVEMENT(2, 1);
+        GO_FORWARD(11, 1);
+        GO_FORWARD(10);
+        BASE_ARM_SWAP(2, 1);
+
+        CURRENT_TASK = BALL_PICK;
+
+    case BALL_PICK:
+        CURRENT_TASK = REACH_END;
+        compass->disable(); // disabling compass
+    case REACH_END:
+        LINE_FOLLOW(true);
+        CURRENT_TASK = KICK_BALL;
+    case KICK_BALL:
+        cout << "All the tasks have been completed" << endl;
     }
-    //directional adjustment
-    BASE_ARM_SWAP(1, 1);
-    SLIDER_ARM_MOVEMENT(1, 1);
-    DELAY(500);
-    BASE_ARM_SWAP(0, 1);
-    SLIDER_ARM_MOVEMENT(0, 1);
-    ALIGN_TO_DIR(EAST);
-
-    // STRAIGHT PUSH
-    SLIDER_ARM_MOVEMENT(1, 1);
-    GO_FORWARD(8.5);
-    DELAY(500);
-    SLIDER_ARM_MOVEMENT(2, 1);
-    GO_FORWARD(11, 1);
-    GO_FORWARD(10);
-    BASE_ARM_SWAP(2, 1);
-
-    CURRENT_TASK = BALL_PICK;
-
-case BALL_PICK:
-    CURRENT_TASK = REACH_END;
-    compass->disable(); // disabling compass
-case REACH_END:
-    LINE_FOLLOW(true);
-    CURRENT_TASK = KICK_BALL;
-case KICK_BALL:
-    cout << "All the tasks have been completed" << endl;
-}
-return;
+    return;
 }
 
 // SENSOR MODELLING FUNCTIONS
@@ -1401,7 +1401,11 @@ bool DETECT_OBJECT()
         if (COLOR_DETECTION(LEFT_CAMERA) == YELLOW || COLOR_DETECTION(RIGHT_CAMERA) == BLACK)
         {
             STOP_ROBOT();
-            return false;
+            ALIGN_TO_DIR(EAST);
+            GO_FORWARD(30);
+            obSensors[FRONT_IR_SHARP]->disable();
+            laserSensors[RIGHT_LAS]->disable();
+            return ROUND_SEARCH();
         }
         if (right_distance < 80) // Typical wall distance 81
         {
@@ -1428,6 +1432,36 @@ bool DETECT_OBJECT()
     obSensors[FRONT_IR_SHARP]->disable();
     laserSensors[RIGHT_LAS]->disable();
     return true;
+}
+
+bool ROUND_SEARCH()
+{
+    // sensor intiation
+    obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+
+    float preValue = 0, irValue = 0;
+    bool breaked = false;
+
+    TURN_ANGLE(120);
+    irValue = OBJECT_IR_READ(FRONT_IR_SHARP);
+    for (int c = 0; c < 120; c++)
+    {
+        preValue = irValue;
+        TURN_ANGLE(1, 1);
+        irValue = OBJECT_IR_READ(FRONT_IR_SHARP);
+        if (abs(preValue - irValue) > 15)
+        {
+            breaked = true;
+            break;
+        }
+    }
+    if (irValue > 36)
+    {
+        GO_FORWARD(irValue - 36);
+    }
+    // sensor termination
+    obSensors[FRONT_IR_SHARP]->disable();
+    return breaked ? true : false;
 }
 
 // CORRECTIONS FUNCTIONS
