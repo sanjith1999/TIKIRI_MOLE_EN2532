@@ -362,11 +362,6 @@ void TASK_MANAGER()
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
         maze_north = READ_COMPASS();
 
-        // sensor terminations : wall following sensors
-        for (int i = 0; i < 4; i++)
-        {
-            wallSensors[i]->disable();
-        }
         // minor adjustment before assigning north
         GO_FORWARD(12);
         ALIGN_TO_DIR(NORTH);
@@ -1133,8 +1128,8 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
                 }
                 else
                 {
-                    motors[BACK_ARM_LEFT]->setPosition(APPROACH_VALUE(bl_s_position, -0.1, 0.001));
-                    motors[BACK_ARM_RIGHT]->setPosition(APPROACH_VALUE(br_s_position, -0.017, 0.001));
+                    motors[BACK_ARM_LEFT]->setPosition(APPROACH_VALUE(bl_s_position, -0.1, 0.003));
+                    motors[BACK_ARM_RIGHT]->setPosition(APPROACH_VALUE(br_s_position, -0.017, 0.003));
                     return;
                 }
             }
