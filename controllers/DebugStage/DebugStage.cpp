@@ -44,7 +44,7 @@ using namespace std;
 #define CYLINDER_HOLE_ALIGN -1.15
 #define CUBE_HOLE_ALIGN -4.4
 #define HOLE_DEPTH 3
-#define ARM_DISTANCE_BALL 10
+#define ARM_DISTANCE_BALL 9.5
 
 #define GAP 5
 

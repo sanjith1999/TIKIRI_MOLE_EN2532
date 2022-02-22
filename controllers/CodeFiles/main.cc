@@ -1262,7 +1262,7 @@ void OBJECT_CONFIRMATION()
 void PICK_OBJECT()
 {
     holeObjects objt;
-    (object_state != 0) ? ALIGN_TO_OBJECT(): STOP_ROBOT();
+    (object_state != 0) ? ALIGN_TO_OBJECT() : STOP_ROBOT();
     if (object_state == 2 || object_state == 4)
     {
         GO_FORWARD(ARM_DISTANCE_FORWARD);
@@ -1476,6 +1476,7 @@ void DETECT_BALL()
 {
     float f_distance = 0, p_distance = 0;
 
+    ALIGN_TO_DIR(WEST);
     f_distance = SONAR_MAP(FRONT_WALL);
     for (float angle = 0; angle < 70; angle = angle + 0.5)
     {
@@ -1487,8 +1488,18 @@ void DETECT_BALL()
             STOP_ROBOT();
             object_state = 0;
             PICK_OBJECT();
-            cout<<colorNames[COLOR_DETECTION(FRONT_CAMERA)]<<endl;
-            return;
+            BASE_ARM_SWAP(2);
+            if (BALL_COLOR == COLOR_DETECTION(FRONT_CAMERA))
+            {
+                return;
+            }
+            else
+            {
+                GO_FORWARD(f_distance-ARM_DISTANCE_BALL,1);
+                ALIGN_TO_DIR(SOUTH);
+                SLIDER_ARM_MOVEMENT(1);
+                DETECT_BALL();
+            }
         }
         cout << angle << endl;
         TURN_ANGLE(-0.5);
