@@ -176,6 +176,7 @@ static float base_speed_fast = 9;
 static float base_speed = 6;
 static float base_speed_slow = 4;
 
+
 // variable to keep track of object to lift
 /*
 -1 : correct ball have been picked,
@@ -192,6 +193,7 @@ static float bright_scale_factor = 1;
 static float I = 0;
 static float last_error = 0;
 static double maze_north = 180;
+static float back_up_distance=5;
 
 // color variable
 Colors BALL_COLOR = BALL_SELECTION;
@@ -366,7 +368,6 @@ void TASK_MANAGER()
         GO_FORWARD(12);
         ALIGN_TO_DIR(NORTH);
 
-        cout << "MAZE NORTH IS ASSIGNED TO :" << maze_north << endl;
         while (robot->step(TIME_STEP) != -1)
         {
             if (COLOR_DETECTION(RIGHT_CAMERA) == CYAN)
@@ -1421,6 +1422,7 @@ void ALIGN_TO_CYLINDER()
     GO_FORWARD(8.25);
     BASE_ARM_SWAP();
     SLIDER_ARM_MOVEMENT();
+    back_up_distance=10;
     return;
 }
 
@@ -1430,7 +1432,7 @@ bool DETECT_OBJECT()
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
     float r_distance = 0;
     ALIGN_TO_DIR(WEST);
-    GO_FORWARD(5, 1);
+    GO_FORWARD(back_up_distance, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         r_distance = LASER_MAP(RIGHT_LAS);
