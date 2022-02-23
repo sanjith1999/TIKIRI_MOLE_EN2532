@@ -166,7 +166,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = LINE_FOLLOWING;
+mainTask CURRENT_TASK = MAZE_SOLVE;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -330,8 +330,7 @@ int main(int argc, char **argv)
     i_unit = robot->getInertialUnit("inertial_unit");
 
     // request to complete the task
-    DETECT_BALL();
-    /* TASK_MANAGER(); */
+    TASK_MANAGER();
     delete robot;
     return 0;
 }
@@ -499,12 +498,17 @@ void TASK_MANAGER()
         DELAY(500);
         SLIDER_ARM_MOVEMENT(2, 1);
         GO_FORWARD(11, 1);
-        GO_FORWARD(10);
+        GO_FORWARD(30);
         BASE_ARM_SWAP(2, 1);
 
         CURRENT_TASK = BALL_PICK;
 
     case BALL_PICK:
+        ALIGN_TO_DIR(NORTH);
+        GO_FORWARD(10);
+        DETECT_BALL();
+        ALIGN_TO_DIR(SOUTH);
+        GO_FORWARD(20);
 
         CURRENT_TASK = REACH_END;
         compass->disable();                 // disabling compass
@@ -1317,8 +1321,8 @@ holeObjects IDENTIFY_OBJECT()
         obSensors[i]->enable(TIME_STEP);
     }
     DELAY(250);
-    front = obSensors[FRONT_OBJECT]->getValue(), left = obSensors[LEFT_OBJECT]->getValue(), right = obSensors[RIGHT_OBJECT]->getValue(), back = obSensors[BACK_OBJECT]->getValue();
-    if (front > 850)
+    front = 100*OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right =100*OBJECT_IRE_READ(RIGHT_OBJECT), back = 100*OBJECT_IR_READBACK_OBJECT);
+    if (front > 7)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
@@ -1330,7 +1334,7 @@ holeObjects IDENTIFY_OBJECT()
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
-    if (back > 850)
+    if (back > 7)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
@@ -1343,15 +1347,15 @@ holeObjects IDENTIFY_OBJECT()
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
-
-    if (IN_RANGE(front, left) && IN_RANGE(front, right) && IN_RANGE(back, front))
-    {
-        objec = CUBE;
-    }
-    else if (IN_RANGE(right, left) && (front - right > 0 || back - left > 0))
+    if (IN_RANGE(right, left) && ( back - left > 0))
     {
         objec = CYLINDER_CIRCLE;
     }
+    if ( (IN_RANGE(back, left) && IN_RANGE(back, right))||(IN_RANGE(front, left) && IN_RANGE(front, right)))
+    {
+        objec = CUBE;
+    }
+
     else
     {
         objec = CYLINDER_CURVED;
@@ -1475,14 +1479,14 @@ bool ROUND_SEARCH()
 void DETECT_BALL()
 {
     float f_distance = 0, p_distance = 0;
-
     ALIGN_TO_DIR(WEST);
     f_distance = SONAR_MAP(FRONT_WALL);
-    for (float angle = 0; angle < 70; angle = angle + 0.5)
+    TURN_ANGLE(15, 1);
+    for (float angle = 0; angle < 60; angle = angle + 0.5)
     {
         p_distance = f_distance;
         f_distance = SONAR_MAP(FRONT_WALL);
-        if (f_distance < 35 && p_distance - f_distance > 5)
+        if (f_distance < 30 && p_distance - f_distance > 5)
         {
             GO_FORWARD(f_distance - ARM_DISTANCE_BALL);
             STOP_ROBOT();
@@ -1495,17 +1499,18 @@ void DETECT_BALL()
             }
             else
             {
-                GO_FORWARD(f_distance-ARM_DISTANCE_BALL,1);
+                GO_FORWARD(f_distance - ARM_DISTANCE_BALL, 1);
                 ALIGN_TO_DIR(SOUTH);
                 SLIDER_ARM_MOVEMENT(1);
                 DETECT_BALL();
+                return;
             }
         }
-        cout << angle << endl;
-        TURN_ANGLE(-0.5);
+        TURN_ANGLE(0.5, 1);
     }
     GO_FORWARD(15);
     DETECT_BALL();
+    return;
 }
 
 // CORRECTIONS FUNCTIONS
