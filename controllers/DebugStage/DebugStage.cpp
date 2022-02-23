@@ -44,7 +44,7 @@ using namespace std;
 #define CYLINDER_HOLE_ALIGN -1.15
 #define CUBE_HOLE_ALIGN -4.4
 #define HOLE_DEPTH 3
-#define ARM_DISTANCE_BALL 9.5
+#define ARM_DISTANCE_BALL 10
 
 #define GAP 5
 
@@ -166,7 +166,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = LINE_FOLLOWING;
+mainTask CURRENT_TASK = MAZE_SOLVE;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -330,8 +330,7 @@ int main(int argc, char **argv)
     i_unit = robot->getInertialUnit("inertial_unit");
 
     // request to complete the task
-    DETECT_BALL();
-    /* TASK_MANAGER(); */
+    TASK_MANAGER();
     delete robot;
     return 0;
 }
@@ -370,13 +369,14 @@ void TASK_MANAGER()
         cout << "MAZE NORTH IS ASSIGNED TO :" << maze_north << endl;
         while (robot->step(TIME_STEP) != -1)
         {
-            GO_FORWARD(3);
             if (COLOR_DETECTION(RIGHT_CAMERA) == CYAN)
             {
                 cout << "REACHED CYAN AREA...." << endl;
                 STOP_ROBOT();
                 break;
             }
+            left_speed = base_speed, right_speed = base_speed;
+            SET_VELOCITY();
         }
         // PICKING OBJECT
         while (object_state != 0)
@@ -499,12 +499,17 @@ void TASK_MANAGER()
         DELAY(500);
         SLIDER_ARM_MOVEMENT(2, 1);
         GO_FORWARD(11, 1);
-        GO_FORWARD(10);
+        GO_FORWARD(30);
         BASE_ARM_SWAP(2, 1);
 
         CURRENT_TASK = BALL_PICK;
 
     case BALL_PICK:
+        ALIGN_TO_DIR(NORTH);
+        GO_FORWARD(10);
+        DETECT_BALL();
+        ALIGN_TO_DIR(SOUTH);
+        GO_FORWARD(20);
 
         CURRENT_TASK = REACH_END;
         compass->disable();                 // disabling compass
@@ -526,11 +531,12 @@ float OBJECT_IR_READ(obIRSensors ir_sensor)
     bool far = true;
     float ir_lookup[7][2] = {{3, 3.03}, {6, 2.01}, {8, 1.55}, {10, 1.25}, {20, 0.66}, {30, 0.42}, {40, 0.31}};
     float ir_lookup2[6][2] = {{15, 933}, {25, 750}, {40, 500}, {60, 333}, {90, 233}, {150, 167}};
+    float ir_lookup3[5][2] = {{1.5, 1000}, {2, 540}, {3, 200}, {5, 58.8}, {10, 19.6}};
 
     short int i = 0;
     if (ir_sensor == FRONT_IR_SHARP)
     {
-        while (i <= 4)
+        while (i < 5)
         {
             if ((ir_lookup2[i][1] >= value) && (value > ir_lookup2[i + 1][1]))
             {
@@ -544,9 +550,9 @@ float OBJECT_IR_READ(obIRSensors ir_sensor)
             distance = value < 167 ? ir_lookup2[5][0] : ir_lookup2[0][0];
         }
     }
-    else
+    else if (ir_sensor < 4)
     {
-        while (i <= 5)
+        while (i < 6)
         {
             if ((ir_lookup[i][1] >= value) && (value > ir_lookup[i + 1][1]))
             {
@@ -558,6 +564,22 @@ float OBJECT_IR_READ(obIRSensors ir_sensor)
         if (far)
         {
             distance = value > 3.03 ? ir_lookup[0][0] : ir_lookup[6][0];
+        }
+    }
+    else
+    {
+        while (i < 4)
+        {
+            if ((ir_lookup3[i][1] >= value) && (value > ir_lookup3[i + 1][1]))
+            {
+                distance = ir_lookup3[i][0] + (value - ir_lookup3[i][1]) * (ir_lookup3[i + 1][0] - ir_lookup3[i][0]) / (ir_lookup3[i + 1][1] - ir_lookup3[i][1]);
+                far = false;
+            }
+            i = i + 1;
+        }
+        if (far)
+        {
+            distance = ir_lookup3[4][1];
         }
     }
     return distance;
@@ -942,8 +964,7 @@ void GO_FORWARD(float distance, short int dir, float deceleration)
         }
         else
         {
-            STOP_ROBOT();
-            return;
+            break;
         }
     }
     STOP_ROBOT();
@@ -1262,7 +1283,7 @@ void OBJECT_CONFIRMATION()
 void PICK_OBJECT()
 {
     holeObjects objt;
-    (object_state != 0) ? ALIGN_TO_OBJECT(): STOP_ROBOT();
+    (object_state != 0) ? ALIGN_TO_OBJECT() : STOP_ROBOT();
     if (object_state == 2 || object_state == 4)
     {
         GO_FORWARD(ARM_DISTANCE_FORWARD);
@@ -1317,56 +1338,61 @@ holeObjects IDENTIFY_OBJECT()
         obSensors[i]->enable(TIME_STEP);
     }
     DELAY(250);
-    front = obSensors[FRONT_OBJECT]->getValue(), left = obSensors[LEFT_OBJECT]->getValue(), right = obSensors[RIGHT_OBJECT]->getValue(), back = obSensors[BACK_OBJECT]->getValue();
-    if (front > 850)
+    front = OBJECT_IR_READ(FRONT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
+    cout<<"front : "<<front<<" ,back : "<<back<<endl;
+    //confirming front sensor in range
+    if (front > 10)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
-        while (front > 850)
+        while (front > 10)
         {
-            GO_FORWARD(0.25, 1);
-            front = obSensors[FRONT_OBJECT]->getValue();
+            GO_FORWARD(0.3, 1);
+            front = OBJECT_IR_READ(FRONT_OBJECT);
         }
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
-    if (back > 850)
+    //confirming back sensor in range
+    cout<<back<<endl;
+    if (back > 10)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
-        while (back > 850)
+        while (back > 10)
         {
-            GO_FORWARD(0.25);
-            back = obSensors[BACK_OBJECT]->getValue();
+            GO_FORWARD(0.3);
+            back = OBJECT_IR_READ(BACK_OBJECT);
         }
 
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
-
-    if (IN_RANGE(front, left) && IN_RANGE(front, right) && IN_RANGE(back, front))
+    front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
+    if ((IN_RANGE(back, left) && IN_RANGE(back, right)))
     {
         objec = CUBE;
     }
-    else if (IN_RANGE(right, left) && (front - right > 0 || back - left > 0))
+    if (IN_RANGE(right, left) && (back - left > 0))
     {
         objec = CYLINDER_CIRCLE;
     }
+
     else
     {
         objec = CYLINDER_CURVED;
     }
     DELAY(250);
-    cout << "Left IR Reading : " << left << endl;
-    cout << "Right IR Reading : " << right << endl;
-    cout << "Straight IR Reading : " << front << endl;
-    cout << "Back IR Reading : " << back << endl;
+
     // disabling sensor
     for (int i = 4; i < 8; i++)
     {
         obSensors[i]->disable();
     }
-
+    cout << "Left IR Reading : " << left << endl;
+    cout << "Right IR Reading : " << right << endl;
+    cout << "Front IR Reading : " << front << endl;
+    cout << "Back IR Reading : " << back << endl;
     return objec;
 }
 
@@ -1402,12 +1428,12 @@ bool DETECT_OBJECT()
 {
     // sensor intiation
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
-    float right_distance = 0;
+    float r_distance = 0;
     ALIGN_TO_DIR(WEST);
     GO_FORWARD(5, 1);
     while (robot->step(TIME_STEP) != -1)
     {
-        right_distance = LASER_MAP(RIGHT_LAS);
+        r_distance = LASER_MAP(RIGHT_LAS);
         if (COLOR_DETECTION(LEFT_CAMERA) == YELLOW || COLOR_DETECTION(RIGHT_CAMERA) == BLACK)
         {
             STOP_ROBOT();
@@ -1416,7 +1442,7 @@ bool DETECT_OBJECT()
             obSensors[FRONT_IR_SHARP]->disable();
             return ROUND_SEARCH();
         }
-        if (right_distance < 80) // Typical wall distance 81
+        if (r_distance < 80) // Typical wall distance 81
         {
             STOP_ROBOT();
             break;
@@ -1428,14 +1454,15 @@ bool DETECT_OBJECT()
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.5, 1);
-        if (OBJECT_IR_READ(FRONT_IR_SHARP) < 120)
+        r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
+        if (r_distance < 120)
         {
             break;
         }
     }
-    if (right_distance > 36) // IR range
+    if (r_distance > 36) // IR range
     {
-        GO_FORWARD(right_distance - 36);
+        GO_FORWARD(r_distance - 36);
     }
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
@@ -1475,26 +1502,38 @@ bool ROUND_SEARCH()
 void DETECT_BALL()
 {
     float f_distance = 0, p_distance = 0;
-
+    ALIGN_TO_DIR(WEST);
     f_distance = SONAR_MAP(FRONT_WALL);
-    for (float angle = 0; angle < 70; angle = angle + 0.5)
+    TURN_ANGLE(15, 1);
+    for (float angle = 0; angle < 60; angle = angle + 0.5)
     {
         p_distance = f_distance;
         f_distance = SONAR_MAP(FRONT_WALL);
-        if (f_distance < 35 && p_distance - f_distance > 5)
+        if (f_distance < 30 && p_distance - f_distance > 5)
         {
             GO_FORWARD(f_distance - ARM_DISTANCE_BALL);
             STOP_ROBOT();
             object_state = 0;
             PICK_OBJECT();
-            cout<<colorNames[COLOR_DETECTION(FRONT_CAMERA)]<<endl;
-            return;
+            BASE_ARM_SWAP(2);
+            if (BALL_COLOR == COLOR_DETECTION(FRONT_CAMERA))
+            {
+                return;
+            }
+            else
+            {
+                GO_FORWARD(f_distance - ARM_DISTANCE_BALL, 1);
+                ALIGN_TO_DIR(SOUTH);
+                SLIDER_ARM_MOVEMENT(1);
+                DETECT_BALL();
+                return;
+            }
         }
-        cout << angle << endl;
-        TURN_ANGLE(-0.5);
+        TURN_ANGLE(0.5, 1);
     }
     GO_FORWARD(15);
     DETECT_BALL();
+    return;
 }
 
 // CORRECTIONS FUNCTIONS
@@ -1512,7 +1551,7 @@ float APPROACH_VALUE(float c_value, float d_value, float a_step)
 
 bool IN_RANGE(float a, float b)
 {
-    if (abs(a - b) < 30)
+    if (abs(a - b) < 0.5)
     {
         return true;
     }
