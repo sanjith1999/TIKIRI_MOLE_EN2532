@@ -49,7 +49,7 @@ using namespace std;
 #define GAP 5
 
 /* NAMES */
-string motorNames[8] = {"left_motor", "right_motor", "front_arm_motor", "back_arm_motor", "fl_slider", "fr_slider", "bl_slider", "br_slider"};
+string motorNames[9] = {"left_motor", "right_motor", "front_arm_motor", "back_arm_motor", "fl_slider", "fr_slider", "bl_slider", "br_slider", "kicker"};
 string irNames[11] = {"ir1", "ir2", "ir3", "ir4", "ir5", "ir6", "ir7", "ir8"};
 string psNames[8] = {"ps_left_motor", "ps_right_motor", "farm_base_position", "fl_position", "fr_position", "barm_base_position", "bl_position", "br_position"};
 string camNames[3] = {"left_camera", "right_camera", "front_camera"};
@@ -71,7 +71,8 @@ enum rsMotors
     FRONT_ARM_LEFT,
     FRONT_ARM_RIGHT,
     BACK_ARM_LEFT,
-    BACK_ARM_RIGHT
+    BACK_ARM_RIGHT,
+    KICKER
 };
 
 enum pSensors
@@ -166,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = MAZE_SOLVE;
+mainTask CURRENT_TASK = KICK_BALL;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -175,7 +176,6 @@ static double right_speed = 0;
 static float base_speed_fast = 9;
 static float base_speed = 6;
 static float base_speed_slow = 4;
-
 
 // variable to keep track of object to lift
 /*
@@ -193,7 +193,7 @@ static float bright_scale_factor = 1;
 static float I = 0;
 static float last_error = 0;
 static double maze_north = 180;
-static float back_up_distance=5;
+static float back_up_distance = 5;
 
 // color variable
 Colors BALL_COLOR = BALL_SELECTION;
@@ -211,7 +211,7 @@ Compass *compass;
 DistanceSensor *obSensors[9];
 InertialUnit *i_unit;
 /* ACTUATORS */
-Motor *motors[8]; // Motor[0] is the left motor, Motor[1] is the right motor
+Motor *motors[9]; // Motor[0] is the left motor, Motor[1] is the right motor
 //------------------------------------------------------------------------------------------------------------------------------//
 /* FUNCTIONS */
 void TASK_MANAGER();
@@ -271,7 +271,7 @@ int main(int argc, char **argv)
     DELAY(500);
 
     // motors
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 9; i++)
     {
         motors[i] = robot->getMotor(motorNames[i]);
     }
@@ -280,6 +280,8 @@ int main(int argc, char **argv)
     motors[LEFT]->setVelocity(0);
     motors[RIGHT]->setPosition(INFINITY);
     motors[RIGHT]->setVelocity(0);
+    motors[KICKER]->setPosition(INFINITY);
+    motors[KICKER]->setVelocity(0);
 
     motors[FRONT_ARM_BASE]->setVelocity(INFINITY);
     motors[BACK_ARM_BASE]->setVelocity(INFINITY);
@@ -340,7 +342,7 @@ int main(int argc, char **argv)
 //------------------------------------------------------FUNCTION DEFINITIONS----------------------------------------------------//
 void TASK_MANAGER()
 {
-    float laserValue = 0, preValue = 0;
+    float laserValue = 0, preValue = 0,tm_time=0;
 
     switch (CURRENT_TASK)
     {
@@ -519,7 +521,18 @@ void TASK_MANAGER()
         LINE_FOLLOW(true);
         CURRENT_TASK = KICK_BALL;
     case KICK_BALL:
-        cout << "All the tasks have been completed" << endl;
+        // kick the ball
+        tm_time = robot->getTime();
+        while (robot->step(TIME_STEP) != -1)
+        {
+            if (robot->getTime() > tm_time + 0.07)
+            {
+                motors[KICKER]->setVelocity(0);
+                break;
+            }
+            motors[KICKER]->setVelocity(-1);
+        }
+        cout << "HOOAH!!!!...... I THINK I AM DONE..... " << endl;
     }
     return;
 }
@@ -1370,11 +1383,15 @@ holeObjects IDENTIFY_OBJECT()
         DELAY(250);
     }
     front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
+    /*     cout << "Left IR Reading : " << left << endl;
+        cout << "Right IR Reading : " << right << endl;
+        cout << "Front IR Reading : " << front << endl;
+        cout << "Back IR Reading : " << back << endl; */
     if (IN_RANGE(back, left) && IN_RANGE(back, right) && IN_RANGE(front, back))
     {
         objec = CUBE;
     }
-    if (IN_RANGE(right, left) && (left - back > 0 || left - front > 0))
+    else if (IN_RANGE(right, left) && (left - back > 0.2 || left - front > 0.2))
     {
         objec = CYLINDER_CURVED;
     }
@@ -1390,10 +1407,6 @@ holeObjects IDENTIFY_OBJECT()
     {
         obSensors[i]->disable();
     }
-    cout << "Left IR Reading : " << left << endl;
-    cout << "Right IR Reading : " << right << endl;
-    cout << "Front IR Reading : " << front << endl;
-    cout << "Back IR Reading : " << back << endl;
     return objec;
 }
 
@@ -1422,7 +1435,7 @@ void ALIGN_TO_CYLINDER()
     GO_FORWARD(8.25);
     BASE_ARM_SWAP();
     SLIDER_ARM_MOVEMENT();
-    back_up_distance=10;
+    back_up_distance = 10;
     return;
 }
 
