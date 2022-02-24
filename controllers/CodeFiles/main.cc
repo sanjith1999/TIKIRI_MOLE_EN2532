@@ -290,7 +290,7 @@ int main(int argc, char **argv)
     motors[FRONT_ARM_RIGHT]->setVelocity(10);
     motors[BACK_ARM_LEFT]->setVelocity(10);
     motors[BACK_ARM_RIGHT]->setVelocity(10);
-    motors[KICKER]->setVelocity(0);
+    motors[KICKER]->setVelocity(10);
 
     motors[FRONT_ARM_BASE]->setPosition(0);
     motors[BACK_ARM_BASE]->setPosition(-0.2);
@@ -328,13 +328,11 @@ int main(int argc, char **argv)
     laserSensors[RIGHT_LAS] = robot->getDistanceSensor(laserNames);
 
     compass = robot->getCompass("compass");
-    compass->enable(TIME_STEP);
 
     for (int i = 0; i < 9; i++)
     {
         obSensors[i] = robot->getDistanceSensor(obIRNames[i]);
     }
-    obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
     obSensors[FRONT_IR]->enable(TIME_STEP);
     obSensors[RIGHT_ALIGN_IR]->enable(TIME_STEP);
     obSensors[LEFT_ALIGN_IR]->enable(TIME_STEP);
@@ -373,6 +371,7 @@ void TASK_MANAGER()
 
     case HOLE_TASK:
         // Hole task
+        compass->enable(TIME_STEP);
         laserSensors[RIGHT_LAS]->enable(TIME_STEP); // enabling laser sensor
         DELAY(500);
 
@@ -525,6 +524,7 @@ void TASK_MANAGER()
         break;
 
     case BALL_PICK:
+        compass->disable();
         ALIGN_TO_DIR(NORTH);
         GO_FORWARD(10);
         DETECT_BALL();
@@ -1060,14 +1060,14 @@ void AIM_TO_GOAL()
     if (BALL_COLOR == BLUE)
     {
         TURN_ANGLE(7);
-        left_speed = -(base_speed_slow-1);
-        right_speed = (base_speed_slow-1);
+        left_speed = -(base_speed_slow - 1);
+        right_speed = (base_speed_slow - 1);
     }
     else
     {
         TURN_ANGLE(7, 1);
-        left_speed = (base_speed_slow-1);
-        right_speed = -(base_speed_slow-1);
+        left_speed = (base_speed_slow - 1);
+        right_speed = -(base_speed_slow - 1);
     }
 
     while (robot->step(TIME_STEP) != -1)
@@ -1316,7 +1316,7 @@ void ALIGN_TO_OBJECT(float distance)
 {
     DELAY(500);
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
-    float front=0, left=0, right=0;
+    float front = 0, left = 0, right = 0;
     int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
     {
@@ -1452,34 +1452,33 @@ holeObjects IDENTIFY_OBJECT()
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
-        while (front > 10)
+        do
         {
-            GO_FORWARD(0.3, 1);
+            GO_FORWARD(0.25, 1);
             front = OBJECT_IR_READ(FRONT_OBJECT);
-        }
+        } while (front > 10);
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     // confirming back sensor in range
-    cout << back << endl;
     if (back > 10)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
-        while (back > 10)
+        do
         {
-            GO_FORWARD(0.3);
+            GO_FORWARD(0.25);
             back = OBJECT_IR_READ(BACK_OBJECT);
-        }
+        } while (back > 10);
 
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
-    /*     cout << "Left IR Reading : " << left << endl;
-        cout << "Right IR Reading : " << right << endl;
-        cout << "Front IR Reading : " << front << endl;
-        cout << "Back IR Reading : " << back << endl; */
+    cout << "Left IR Reading : " << left << endl;
+    cout << "Right IR Reading : " << right << endl;
+    cout << "Front IR Reading : " << front << endl;
+    cout << "Back IR Reading : " << back << endl;
     if (IN_RANGE(back, left) && IN_RANGE(back, right) && IN_RANGE(front, back))
     {
         objec = CUBE;
@@ -1534,6 +1533,8 @@ void ALIGN_TO_CYLINDER()
 
 bool DETECT_OBJECT()
 {
+    obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+
     float r_distance = 0;
     ALIGN_TO_DIR(WEST);
     GO_FORWARD(back_up_distance, 1);
@@ -1567,8 +1568,8 @@ bool DETECT_OBJECT()
             break;
         }
     }
-    cout << "Sharp IR Reading : " << r_distance << endl;
     GO_FORWARD(r_distance - 30);
+    obSensors[FRONT_IR_SHARP]->disable();
     return true;
 }
 
@@ -1578,12 +1579,14 @@ bool ROUND_SEARCH()
     bool breaked = false;
 
     TURN_ANGLE(120);
+    motors[KICKER]->setPosition(0);
     irValue = OBJECT_IR_READ(FRONT_IR_SHARP);
-    for (int c = 0; c < 120; c++)
+    for (int c = 0; c < 70; c++)
     {
         preValue = irValue;
-        TURN_ANGLE(1, 1);
+        TURN_ANGLE(0.5, 1);
         irValue = OBJECT_IR_READ(FRONT_IR_SHARP);
+        motors[KICKER]->setPosition(0);
         if (abs(preValue - irValue) > 15)
         {
             breaked = true;
@@ -1594,6 +1597,7 @@ bool ROUND_SEARCH()
     {
         GO_FORWARD(irValue - 36);
     }
+    obSensors[FRONT_IR_SHARP]->disable();
     return breaked ? true : false;
 }
 
