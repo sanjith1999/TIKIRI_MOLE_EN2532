@@ -42,7 +42,7 @@ using namespace std;
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION RED
 #define CYLINDER_HOLE_ALIGN 0
-#define CUBE_HOLE_ALIGN -4.4
+#define CUBE_HOLE_ALIGN -4.6
 #define HOLE_DEPTH 3
 #define ARM_DISTANCE_BALL 10
 
@@ -1485,10 +1485,10 @@ holeObjects IDENTIFY_OBJECT()
         DELAY(250);
     }
     front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
-    cout << "Left IR Reading : " << left << endl;
+/*     cout << "Left IR Reading : " << left << endl;
     cout << "Right IR Reading : " << right << endl;
     cout << "Front IR Reading : " << front << endl;
-    cout << "Back IR Reading : " << back << endl;
+    cout << "Back IR Reading : " << back << endl; */
     if (IN_RANGE(back, left) && IN_RANGE(back, right) && IN_RANGE(front, back))
     {
         objec = CUBE;
@@ -1568,7 +1568,7 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(75, 1);
+    TURN_ANGLE(80, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         motors[KICKER]->setPosition(0);
@@ -1578,7 +1578,7 @@ bool DETECT_OBJECT()
         if (r_distance < 130)
         {
             STOP_ROBOT();
-            TURN_ANGLE(1, 1);
+            TURN_ANGLE(1.5, 1);
             break;
         }
         current_time = robot->getTime();
@@ -1586,18 +1586,10 @@ bool DETECT_OBJECT()
         {
             ALIGN_TO_DIR(NORTH);
             GO_FORWARD(10);
-            TURN_ANGLE(15);
+            TURN_ANGLE(20);
             start_time = current_time;
             continue;
         }
-    }
-    if (r_distance > 90)
-    {
-        TURN_ANGLE(6, 1);
-    }
-    else
-    {
-        TURN_ANGLE(2, 1);
     }
     GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 30);
     obSensors[FRONT_IR_SHARP]->disable();
