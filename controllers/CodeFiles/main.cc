@@ -265,8 +265,6 @@ void SET_VELOCITY();
 void STOP_ROBOT();
 void CLEAR_VARIABLES();
 
-// FUN COMMENTS
-void MAKE_FUN1(holeObjects var);
 
 //------------------------------------------------------------------------------------------------------------------------------//
 int main(int argc, char **argv)
@@ -495,7 +493,7 @@ void TASK_MANAGER()
                     STOP_ROBOT();
                     GO_FORWARD(CUBE_HOLE_ALIGN);
                     ALIGN_TO_DIR(EAST);
-                    GO_FORWARD(13.5, 1);
+                    GO_FORWARD(12, 1);
                     break;
                 }
             }
@@ -1314,17 +1312,15 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
 // OBJECT PICKING-PLACING FUNCTIONS
 void ALIGN_TO_OBJECT(float distance)
 {
-    DELAY(500);
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     float front = 0, left = 0, right = 0;
     int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
     {
-        front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
         motors[KICKER]->setPosition(0);
+        front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
         if (front < distance || left < distance || right < distance)
         {
-            cout << "Front : " << front << "Left : " << left << "Right : " << right << endl;
             break;
         }
 
@@ -1396,7 +1392,6 @@ void PICK_OBJECT()
         SLIDER_ARM_MOVEMENT();
         objt = IDENTIFY_OBJECT();
         cout << holeObject[objt] << endl;
-        MAKE_FUN1(objt);
         if (objt == CUBE)
         {
             DELAY(300);
@@ -1755,22 +1750,5 @@ void CLEAR_VARIABLES()
     I = 0, last_error = 0;
 }
 
-// FUN COMMENTS
-void MAKE_FUN1(holeObjects var)
-{
-    switch (var)
-    {
-    case CYLINDER_CIRCLE:
-        cout << "OKAY...HOLD ON I AM COMING OTHER WAY AROUND" << endl;
-        break;
-    case CYLINDER_CURVED:
-        cout << "OH! OKAY... MY TASK IS EASY NOW..." << endl;
-        break;
-    case CUBE:
-        cout << "LET ME SEE FROM BACK SIDE...." << endl;
-        break;
-    }
-    return;
-}
 
 //-----------------------------------------------------------------**THE END**-----------------------------------------------------------------------------//
