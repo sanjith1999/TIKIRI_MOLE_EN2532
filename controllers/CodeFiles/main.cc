@@ -9,6 +9,10 @@ Group Members:- S.SANJITH
 MOST OF THE CODE USE COVENTION LEFT TO RIGH
 */
 //-------------------------------------------------------------BEGIN-----------------------------------------------------------//
+
+#define BALL_SELECTION BLUE // please define the ball color here as BLUE OR RED (ALL CAPITALS )
+
+//----------------------------------------------------------------------------------------------------------------------------------------------
 /* Including Libraries */
 #include <iostream>
 #include <cmath>
@@ -40,7 +44,6 @@ using namespace std;
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
-#define BALL_SELECTION BLUE
 #define CYLINDER_HOLE_ALIGN -0.3
 #define CUBE_HOLE_ALIGN -4.7
 #define HOLE_DEPTH 3
@@ -1090,7 +1093,7 @@ void AIM_TO_GOAL()
     }
     else
     {
-        TURN_ANGLE(2.2);
+        TURN_ANGLE(2);
     }
     return;
 }
