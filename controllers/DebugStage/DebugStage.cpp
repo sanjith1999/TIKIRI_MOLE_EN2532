@@ -1496,10 +1496,11 @@ bool DETECT_OBJECT()
             break;
         }
     }
-    if (r_distance > 36) // IR range
+    GO_FORWARD(r_distance - 30,1);
+/*     if (r_distance > 30) // IR range
     {
-        GO_FORWARD(r_distance - 36);
-    }
+        GO_FORWARD(r_distance - 30);
+    } */
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
@@ -1549,7 +1550,6 @@ void DETECT_BALL()
         {
             GO_FORWARD(f_distance - ARM_DISTANCE_BALL);
             STOP_ROBOT();
-            object_state = 0;
             PICK_OBJECT();
             BASE_ARM_SWAP(2);
             cout << colorNames[COLOR_DETECTION(FRONT_CAMERA)] << endl;
