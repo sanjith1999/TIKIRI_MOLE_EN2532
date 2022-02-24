@@ -428,7 +428,7 @@ void TASK_MANAGER()
         }
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(10, 1);
+        GO_FORWARD(8, 1);
         // HOLE RIGHT ALIGN RIGHT
         laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
@@ -562,6 +562,7 @@ void TASK_MANAGER()
         BASE_ARM_SWAP(), SLIDER_ARM_MOVEMENT(1);
         GO_FORWARD(5);
         // kick the ball
+        motors[KICKER]->setPosition(INFINITY);
         tm_time = robot->getTime();
         while (robot->step(TIME_STEP) != -1)
         {
@@ -1313,7 +1314,7 @@ void ALIGN_TO_OBJECT(float distance)
 {
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     float front = 0, left = 0, right = 0;
-    int cofficient = 1;
+    int cofficient = 6;
     while (robot->step(TIME_STEP) != -1)
     {
         motors[KICKER]->setPosition(0);
@@ -1396,7 +1397,7 @@ void PICK_OBJECT()
             DELAY(300);
             SLIDER_ARM_MOVEMENT(1);
             BASE_ARM_SWAP(2);
-            GO_FORWARD(6, 1);
+            GO_FORWARD(4.5, 1);
             TURN_ANGLE(180, 1);
             GO_FORWARD(5, 1);
             BASE_ARM_SWAP(0, 1);
