@@ -283,8 +283,6 @@ int main(int argc, char **argv)
     motors[LEFT]->setVelocity(0);
     motors[RIGHT]->setPosition(INFINITY);
     motors[RIGHT]->setVelocity(0);
-    motors[KICKER]->setPosition(INFINITY);
-    motors[KICKER]->setVelocity(0);
 
     motors[FRONT_ARM_BASE]->setVelocity(10);
     motors[BACK_ARM_BASE]->setVelocity(10);
@@ -292,6 +290,7 @@ int main(int argc, char **argv)
     motors[FRONT_ARM_RIGHT]->setVelocity(10);
     motors[BACK_ARM_LEFT]->setVelocity(10);
     motors[BACK_ARM_RIGHT]->setVelocity(10);
+    motors[KICKER]->setVelocity(0);
 
     motors[FRONT_ARM_BASE]->setPosition(0);
     motors[BACK_ARM_BASE]->setPosition(-0.2);
@@ -299,6 +298,7 @@ int main(int argc, char **argv)
     motors[FRONT_ARM_RIGHT]->setPosition(-0.025);
     motors[BACK_ARM_LEFT]->setPosition(0.025);
     motors[BACK_ARM_RIGHT]->setPosition(-0.047);
+    motors[KICKER]->setPosition(0);
 
     // SENSOR INTIATIONS
     for (int i = 0; i < 8; i++)
@@ -398,6 +398,7 @@ void TASK_MANAGER()
         // PICKING OBJECT
         while (object_state != 0)
         {
+            motors[KICKER]->setPosition(0);
             GO_FORWARD(20, 1);
             TURN_ANGLE(30), GO_FORWARD(10);
             if (DETECT_OBJECT())
@@ -1092,6 +1093,7 @@ void AIM_TO_GOAL()
     }
     return;
 }
+
 // ARM RELATED FUNCTIONS
 void BASE_ARM_SWAP(short int f_position, short int c_arm)
 {
@@ -1314,10 +1316,12 @@ void ALIGN_TO_OBJECT(float distance)
 {
     DELAY(500);
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
+    float front=0, left=0, right=0;
     int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
     {
-        float front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
+        front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
+        motors[KICKER]->setPosition(0);
         if (front < distance || left < distance || right < distance)
         {
             cout << "Front : " << front << "Left : " << left << "Right : " << right << endl;
@@ -1555,6 +1559,7 @@ bool DETECT_OBJECT()
     TURN_ANGLE(75, 1);
     while (robot->step(TIME_STEP) != -1)
     {
+        motors[KICKER]->setPosition(0);
         TURN_ANGLE(0.2, 1);
         r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
         if (r_distance < 100)
@@ -1601,6 +1606,7 @@ void DETECT_BALL()
     TURN_ANGLE(30, 1);
     for (float angle = 0; angle < 60; angle = angle + 0.5)
     {
+        motors[KICKER]->setPosition(0);
         p_distance = f_distance;
         f_distance = SONAR_MAP(FRONT_WALL);
         if (f_distance < 35 && p_distance - f_distance > 5)
