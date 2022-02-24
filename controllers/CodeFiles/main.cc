@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = MAZE_SOLVE;
+mainTask CURRENT_TASK = LINE_FOLLOWING;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -283,12 +283,12 @@ int main(int argc, char **argv)
     motors[KICKER]->setPosition(INFINITY);
     motors[KICKER]->setVelocity(0);
 
-    motors[FRONT_ARM_BASE]->setVelocity(INFINITY);
-    motors[BACK_ARM_BASE]->setVelocity(INFINITY);
-    motors[FRONT_ARM_LEFT]->setVelocity(INFINITY);
-    motors[FRONT_ARM_RIGHT]->setVelocity(INFINITY);
-    motors[BACK_ARM_LEFT]->setVelocity(INFINITY);
-    motors[BACK_ARM_RIGHT]->setVelocity(INFINITY);
+    motors[FRONT_ARM_BASE]->setVelocity(10);
+    motors[BACK_ARM_BASE]->setVelocity(10);
+    motors[FRONT_ARM_LEFT]->setVelocity(10);
+    motors[FRONT_ARM_RIGHT]->setVelocity(10);
+    motors[BACK_ARM_LEFT]->setVelocity(10);
+    motors[BACK_ARM_RIGHT]->setVelocity(10);
 
     motors[FRONT_ARM_BASE]->setPosition(0);
     motors[BACK_ARM_BASE]->setPosition(-0.2);
@@ -342,7 +342,7 @@ int main(int argc, char **argv)
 //------------------------------------------------------FUNCTION DEFINITIONS----------------------------------------------------//
 void TASK_MANAGER()
 {
-    float laserValue = 0, preValue = 0,tm_time=0;
+    float laserValue = 0, preValue = 0, tm_time = 0;
 
     switch (CURRENT_TASK)
     {
@@ -502,8 +502,9 @@ void TASK_MANAGER()
         DELAY(500);
         SLIDER_ARM_MOVEMENT(2, 1);
         GO_FORWARD(11, 1);
-        GO_FORWARD(30);
+        GO_FORWARD(32);
         BASE_ARM_SWAP(2, 1);
+        SLIDER_ARM_MOVEMENT(1);
 
         CURRENT_TASK = BALL_PICK;
 
@@ -511,12 +512,32 @@ void TASK_MANAGER()
         ALIGN_TO_DIR(NORTH);
         GO_FORWARD(10);
         DETECT_BALL();
-        ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(20);
+        GO_FORWARD(10, 1);
+        ALIGN_TO_DIR(WEST);
 
-        CURRENT_TASK = REACH_END;
+        irPanel[0]->enable(TIME_STEP);
+        irPanel[3]->enable(TIME_STEP);
+        irPanel[7]->enable(TIME_STEP);
+
+        while (robot->step(TIME_STEP) != -1)
+        {
+            if (irPanel[0]->getValue() < 100 && irPanel[1]->getValue() < 100 && irPanel[2]->getValue() < 100)
+            {
+                STOP_ROBOT();
+                break;
+            }
+            right_speed = base_speed, left_speed = base_speed;
+            SET_VELOCITY();
+        }
+
+        irPanel[0]->disable();
+        irPanel[3]->disable();
+        irPanel[7]->disable();
+
         compass->disable();                 // disabling compass
         laserSensors[RIGHT_LAS]->disable(); // diable laser sensor
+
+        CURRENT_TASK = REACH_END;
     case REACH_END:
         LINE_FOLLOW(true);
         CURRENT_TASK = KICK_BALL;
@@ -627,7 +648,7 @@ Colors COLOR_DETECTION(aCameras color_sensor)
     int b = cams[color_sensor]->imageGetBlue(image, width, (int)(width / 2), (int)(height / 2));
 
     // Determine threshold
-    float threshold = bright_scale_factor * 18;
+    float threshold = bright_scale_factor * 25;
 
     // give detected output
     if (r < threshold && g < threshold && b < threshold)
@@ -819,7 +840,7 @@ void WALL_FOLLOW()
                 TURN_ANGLE(30, 1);
                 GO_FORWARD();
                 TURN_ANGLE(60, 1);
-                GO_FORWARD(8);
+                GO_FORWARD(7);
                 double_turn = true;
             }
             // cout << "RIGHT TURN :" << SONAR_MAP(RIGHT_WALL) << endl;
@@ -1465,12 +1486,12 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(77, 1);
+    TURN_ANGLE(80, 1);
     while (robot->step(TIME_STEP) != -1)
     {
-        TURN_ANGLE(0.5, 1);
+        TURN_ANGLE(0.2, 1);
         r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
-        if (r_distance < 120)
+        if (r_distance < 100)
         {
             break;
         }
@@ -1519,7 +1540,7 @@ void DETECT_BALL()
     float f_distance = 0, p_distance = 0;
     ALIGN_TO_DIR(WEST);
     f_distance = SONAR_MAP(FRONT_WALL);
-    TURN_ANGLE(15, 1);
+    TURN_ANGLE(30, 1);
     for (float angle = 0; angle < 60; angle = angle + 0.5)
     {
         p_distance = f_distance;
@@ -1531,20 +1552,32 @@ void DETECT_BALL()
             object_state = 0;
             PICK_OBJECT();
             BASE_ARM_SWAP(2);
+            cout << colorNames[COLOR_DETECTION(FRONT_CAMERA)] << endl;
+            GO_FORWARD(f_distance - ARM_DISTANCE_BALL, 1);
+            ALIGN_TO_DIR(SOUTH);
             if (BALL_COLOR == COLOR_DETECTION(FRONT_CAMERA))
             {
+                while (robot->step(TIME_STEP) != -1)
+                {
+                    if (COLOR_DETECTION(RIGHT_CAMERA) == YELLOW || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
+                    {
+                        STOP_ROBOT();
+                        break;
+                    }
+                    left_speed = -base_speed, right_speed = -base_speed;
+                    SET_VELOCITY();
+                }
                 return;
             }
             else
             {
-                GO_FORWARD(f_distance - ARM_DISTANCE_BALL, 1);
-                ALIGN_TO_DIR(SOUTH);
+
                 SLIDER_ARM_MOVEMENT(1);
                 DETECT_BALL();
                 return;
             }
         }
-        TURN_ANGLE(0.5, 1);
+        TURN_ANGLE(0.3, 1);
     }
     ALIGN_TO_DIR(NORTH);
     GO_FORWARD(15);
