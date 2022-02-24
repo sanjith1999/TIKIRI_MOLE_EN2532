@@ -40,9 +40,9 @@ using namespace std;
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
-#define BALL_SELECTION RED
-#define CYLINDER_HOLE_ALIGN 0
-#define CUBE_HOLE_ALIGN -4.6
+#define BALL_SELECTION BLUE
+#define CYLINDER_HOLE_ALIGN -0.3
+#define CUBE_HOLE_ALIGN -4.8
 #define HOLE_DEPTH 3
 #define ARM_DISTANCE_BALL 10
 
@@ -400,7 +400,8 @@ void TASK_MANAGER()
             TURN_ANGLE(30), GO_FORWARD(10);
             if (DETECT_OBJECT())
             {
-                PICK_OBJECT();
+                if (OBJECT_IR_READ(FRONT_IR) < 40 || OBJECT_IR_READ(LEFT_ALIGN_IR) < 40 || OBJECT_IR_READ(RIGHT_ALIGN_IR) < 40)
+                    PICK_OBJECT();
             }
             BASE_ARM_SWAP(2);
             BASE_ARM_SWAP(2, 1);
@@ -430,7 +431,7 @@ void TASK_MANAGER()
         }
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(8, 1);
+        GO_FORWARD(3, 1);
         // HOLE RIGHT ALIGN RIGHT
         laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
@@ -516,7 +517,7 @@ void TASK_MANAGER()
         DELAY(500);
         SLIDER_ARM_MOVEMENT(2, 1);
         GO_FORWARD(11, 1);
-        GO_FORWARD(32);
+        GO_FORWARD(25);
         BASE_ARM_SWAP(2, 1);
         SLIDER_ARM_MOVEMENT(1);
 
@@ -1085,11 +1086,11 @@ void AIM_TO_GOAL()
 
     if (BALL_COLOR == BLUE)
     {
-        TURN_ANGLE(3.5, 1);
+        TURN_ANGLE(2.8, 1);
     }
     else
     {
-        TURN_ANGLE(3.5);
+        TURN_ANGLE(2.2);
     }
     return;
 }
@@ -1246,11 +1247,13 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
             {
                 if (abs(fl_s_position + 0.005) > 0.002 && abs(fr_s_position - 0.005) > 0.002)
                 {
-                    motors[FRONT_ARM_LEFT]->setPosition(APPROACH_VALUE(fl_s_position, -0.006));
-                    motors[FRONT_ARM_RIGHT]->setPosition(APPROACH_VALUE(fr_s_position, 0.006));
+                    motors[FRONT_ARM_LEFT]->setPosition(APPROACH_VALUE(fl_s_position, -0.009));
+                    motors[FRONT_ARM_RIGHT]->setPosition(APPROACH_VALUE(fr_s_position, 0.009));
                 }
                 else
                 {
+                    motors[FRONT_ARM_LEFT]->setPosition(APPROACH_VALUE(fl_s_position, -0.009));
+                    motors[FRONT_ARM_RIGHT]->setPosition(APPROACH_VALUE(fr_s_position, 0.009));
                     return;
                 }
             }
@@ -1335,7 +1338,7 @@ void ALIGN_TO_OBJECT(float distance)
             I = 0;
         }
         double correction = (kd * D + kp * P + ki * I) * cofficient;
-        left_speed = base_speed - correction, right_speed = base_speed + correction;
+        left_speed = base_speed_slow - correction, right_speed = base_speed_slow + correction;
         SET_VELOCITY();
     }
     STOP_ROBOT();
@@ -1450,7 +1453,7 @@ holeObjects IDENTIFY_OBJECT()
     DELAY(250);
     front = OBJECT_IR_READ(FRONT_OBJECT);
     // confirming front sensor in range
-    if (front > 10)
+    if (front > 8)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
@@ -1461,14 +1464,14 @@ holeObjects IDENTIFY_OBJECT()
             front = OBJECT_IR_READ(FRONT_OBJECT);
             if (count > 10)
                 return UNDEFINED;
-        } while (front > 10);
+        } while (front > 8);
         STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     // confirming back sensor in range
     back = OBJECT_IR_READ(BACK_OBJECT);
-    if (back > 10)
+    if (back > 8)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
@@ -1479,16 +1482,16 @@ holeObjects IDENTIFY_OBJECT()
             back = OBJECT_IR_READ(BACK_OBJECT);
             if (count > 10)
                 return UNDEFINED;
-        } while (back > 10);
+        } while (back > 8);
         STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
-/*     cout << "Left IR Reading : " << left << endl;
-    cout << "Right IR Reading : " << right << endl;
-    cout << "Front IR Reading : " << front << endl;
-    cout << "Back IR Reading : " << back << endl; */
+    /*     cout << "Left IR Reading : " << left << endl;
+        cout << "Right IR Reading : " << right << endl;
+        cout << "Front IR Reading : " << front << endl;
+        cout << "Back IR Reading : " << back << endl; */
     if (IN_RANGE(back, left) && IN_RANGE(back, right) && IN_RANGE(front, back))
     {
         objec = CUBE;
@@ -1514,7 +1517,7 @@ holeObjects IDENTIFY_OBJECT()
 
 void ALIGN_TO_CYLINDER()
 {
-    DELAY(1500);
+    DELAY(2000);
     SLIDER_ARM_MOVEMENT(1);
     BASE_ARM_SWAP(2);
     GO_FORWARD(8, 1);
@@ -1591,7 +1594,7 @@ bool DETECT_OBJECT()
             continue;
         }
     }
-    GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 30);
+    GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 28);
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
 }
@@ -1621,7 +1624,9 @@ bool ROUND_SEARCH()
         GO_FORWARD(irValue - 36);
     }
     obSensors[FRONT_IR_SHARP]->disable();
-    return breaked ? true : false;
+    if (breaked)
+        return true;
+    return false;
 }
 
 void DETECT_BALL()
@@ -1647,15 +1652,32 @@ void DETECT_BALL()
             ALIGN_TO_DIR(SOUTH);
             if (BALL_COLOR == color)
             {
-                while (robot->step(TIME_STEP) != -1)
+                if (COLOR_DETECTION(RIGHT_CAMERA) == BLACK)
                 {
-                    if (COLOR_DETECTION(RIGHT_CAMERA) == YELLOW || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
+                    while (robot->step(TIME_STEP) != -1)
                     {
-                        STOP_ROBOT();
-                        break;
+                        if (COLOR_DETECTION(RIGHT_CAMERA) == YELLOW || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
+                        {
+                            STOP_ROBOT();
+                            break;
+                        }
+                        left_speed = base_speed, right_speed = base_speed;
+                        SET_VELOCITY();
                     }
-                    left_speed = base_speed, right_speed = base_speed;
-                    SET_VELOCITY();
+                }
+                else
+                {
+                    while (robot->step(TIME_STEP) != -1)
+                    {
+
+                        if (COLOR_DETECTION(RIGHT_CAMERA) == BLACK || COLOR_DETECTION(LEFT_CAMERA) == BLACK)
+                        {
+                            STOP_ROBOT();
+                            break;
+                        }
+                        left_speed = -base_speed, right_speed = -base_speed;
+                        SET_VELOCITY();
+                    }
                 }
                 return;
             }
@@ -1670,6 +1692,12 @@ void DETECT_BALL()
     }
     ALIGN_TO_DIR(NORTH);
     GO_FORWARD(15);
+    if (SONAR_MAP(FRONT_WALL) < 30)
+    {
+        GO_FORWARD(60, 1);
+        ALIGN_TO_DIR(WEST);
+        GO_FORWARD(20, 1);
+    }
     DETECT_BALL();
     return;
 }
