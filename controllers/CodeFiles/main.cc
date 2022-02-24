@@ -36,7 +36,7 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 10
+#define ARM_DISTANCE_FORWARD 9.4
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
@@ -1546,6 +1546,7 @@ void DETECT_BALL()
         }
         TURN_ANGLE(0.5, 1);
     }
+    ALIGN_TO_DIR(NORTH);
     GO_FORWARD(15);
     DETECT_BALL();
     return;
