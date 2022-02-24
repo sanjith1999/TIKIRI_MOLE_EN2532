@@ -866,7 +866,6 @@ void WALL_FOLLOW()
             MINOR_CORRECTION_WALL();
             turned = true;
             double_turn = false;
-            DELAY(500);
             // cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if (front_ds_value < limit_wall && right_ds_value < limit_wall)
