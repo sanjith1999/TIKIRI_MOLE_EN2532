@@ -42,7 +42,7 @@ using namespace std;
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION BLUE
 #define CYLINDER_HOLE_ALIGN -0.3
-#define CUBE_HOLE_ALIGN -4.8
+#define CUBE_HOLE_ALIGN -4.7
 #define HOLE_DEPTH 3
 #define ARM_DISTANCE_BALL 10
 
@@ -400,8 +400,7 @@ void TASK_MANAGER()
             TURN_ANGLE(30), GO_FORWARD(10);
             if (DETECT_OBJECT())
             {
-                if (OBJECT_IR_READ(FRONT_IR) < 40 || OBJECT_IR_READ(LEFT_ALIGN_IR) < 40 || OBJECT_IR_READ(RIGHT_ALIGN_IR) < 40)
-                    PICK_OBJECT();
+                PICK_OBJECT();
             }
             BASE_ARM_SWAP(2);
             BASE_ARM_SWAP(2, 1);
@@ -1061,13 +1060,13 @@ void AIM_TO_GOAL()
     sonarValue = SONAR_MAP(FRONT_WALL);
     if (BALL_COLOR == BLUE)
     {
-        TURN_ANGLE(7);
+        TURN_ANGLE(10);
         left_speed = -(base_speed_slow - 1);
         right_speed = (base_speed_slow - 1);
     }
     else
     {
-        TURN_ANGLE(7, 1);
+        TURN_ANGLE(10, 1);
         left_speed = (base_speed_slow - 1);
         right_speed = -(base_speed_slow - 1);
     }
@@ -1087,7 +1086,7 @@ void AIM_TO_GOAL()
 
     if (BALL_COLOR == BLUE)
     {
-        TURN_ANGLE(2.8, 1);
+        TURN_ANGLE(3.2, 1);
     }
     else
     {
@@ -1325,7 +1324,6 @@ void ALIGN_TO_OBJECT(float distance)
     {
         motors[KICKER]->setPosition(0);
         front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
-        cout << front << " " << left << " " << right << endl;
         if (front < distance || left < distance || right < distance)
         {
             break;
@@ -1340,7 +1338,7 @@ void ALIGN_TO_OBJECT(float distance)
             I = 0;
         }
         double correction = (kd * D + kp * P + ki * I) * cofficient;
-        left_speed = base_speed_slow - correction, right_speed = base_speed_slow + correction;
+        left_speed = base_speed - correction, right_speed = base_speed + correction;
         SET_VELOCITY();
     }
     STOP_ROBOT();
@@ -1592,17 +1590,12 @@ bool DETECT_OBJECT()
             continue;
         }
     }
-    start_time = robot->getTime();
-    while (TIME_STEP)
+    while (robot->step(TIME_STEP) != -1)
     {
-        current_time = robot->getTime();
         if (OBJECT_IR_READ(FRONT_IR) < 38 || OBJECT_IR_READ(LEFT_ALIGN_IR) < 38 || OBJECT_IR_READ(RIGHT_ALIGN_IR) < 38)
         {
+            STOP_ROBOT();
             break;
-        }
-        if (current_time - start_time > 4)
-        {
-            return false;
         }
         left_speed = base_speed_slow, right_speed = base_speed_slow;
         SET_VELOCITY();
