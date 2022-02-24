@@ -167,7 +167,8 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = MAZE_SOLVE;
+mainTask CURRENT_TASK = LINE_FOLLOWING;
+static bool TERMINATION = false;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -232,7 +233,7 @@ void WALL_FOLLOW();
 void ALIGN_TO_DIR(directions destination = NORTH);
 void TURN_90(short int dir = 0);
 void TURN_ANGLE(float angle = 45, short int dir = 0);
-void GO_FORWARD(float distance = CENTER_DISTANCE, short int dir = 0, float deceleration = 0);
+void GO_FORWARD(float distance_ = CENTER_DISTANCE, short int dir = 0, float deceleration = 0);
 
 // ARM RELATED FUNCTIONS
 void BASE_ARM_SWAP(short int f_position = 0, short int c_arm = 0);
@@ -334,7 +335,10 @@ int main(int argc, char **argv)
     i_unit = robot->getInertialUnit("inertial_unit");
 
     // request to complete the task
-    TASK_MANAGER();
+    while (!TERMINATION)
+    {
+        TASK_MANAGER();
+    }
     delete robot;
     return 0;
 }
@@ -351,16 +355,19 @@ void TASK_MANAGER()
         GO_FORWARD();
         LINE_FOLLOW();
         CURRENT_TASK = MAZE_SOLVE;
+        break;
 
     case MAZE_SOLVE:
         // Maze solving task
         WALL_FOLLOW();
         CURRENT_TASK = HOLE_TASK;
+        break;
 
     case HOLE_TASK:
         // Hole task
         compass->enable(TIME_STEP);                 // enabling compass
         laserSensors[RIGHT_LAS]->enable(TIME_STEP); // enabling laser sensor
+        DELAY(500);
 
         GO_FORWARD(12, 1);
         TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
@@ -507,6 +514,7 @@ void TASK_MANAGER()
         SLIDER_ARM_MOVEMENT(1);
 
         CURRENT_TASK = BALL_PICK;
+        break;
 
     case BALL_PICK:
         ALIGN_TO_DIR(NORTH);
@@ -518,6 +526,7 @@ void TASK_MANAGER()
         irPanel[0]->enable(TIME_STEP);
         irPanel[3]->enable(TIME_STEP);
         irPanel[7]->enable(TIME_STEP);
+        DELAY(500);
 
         while (robot->step(TIME_STEP) != -1)
         {
@@ -533,11 +542,14 @@ void TASK_MANAGER()
         irPanel[0]->disable();
         irPanel[3]->disable();
         irPanel[7]->disable();
+        DELAY(500);
 
         compass->disable();                 // disabling compass
         laserSensors[RIGHT_LAS]->disable(); // diable laser sensor
+        DELAY(500);
 
         CURRENT_TASK = REACH_END;
+        break;
     case REACH_END:
         LINE_FOLLOW(true);
         CURRENT_TASK = KICK_BALL;
@@ -554,6 +566,9 @@ void TASK_MANAGER()
             motors[KICKER]->setVelocity(-1);
         }
         cout << "HOOAH!!!!...... I THINK I AM DONE..... " << endl;
+        STOP_ROBOT();
+        TERMINATION = true;
+        break;
     }
     return;
 }
@@ -846,11 +861,12 @@ void WALL_FOLLOW()
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
             MINOR_CORRECTION_WALL(9);
-            TURN_90(),TURN_90();
+            TURN_90(), TURN_90();
             GO_FORWARD(5, 1);
             MINOR_CORRECTION_WALL();
             turned = true;
             double_turn = false;
+            DELAY(500);
             // cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
         }
         else if (front_ds_value < limit_wall && right_ds_value < limit_wall)
@@ -873,8 +889,6 @@ void WALL_FOLLOW()
     }
     cout << "I AM GLAD THAT... I MAKE IT TO THE CMYK REGION" << endl;
     STOP_ROBOT();
-    CLEAR_VARIABLES();
-
     return;
 }
 
@@ -971,12 +985,12 @@ void TURN_ANGLE(float angle, short int dir)
     }
 };
 
-void GO_FORWARD(float distance, short int dir, float deceleration)
+void GO_FORWARD(float distance_, short int dir, float deceleration)
 {
     /* dir : {forward, backward} */
     double l_position = psSensors[psRightMotor]->getValue(), r_position = psSensors[psLeftMotor]->getValue(), lc_position, rc_position;
-    double t_angle = abs(distance) / (wheel_radius * 100);
-    if (!dir && distance > 0)
+    double t_angle = abs(distance_) / (wheel_radius * 100);
+    if (!dir && distance_ > 0)
     {
         right_speed = base_speed - deceleration;
         left_speed = base_speed - deceleration;
@@ -1014,6 +1028,7 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
     {
         psSensors[i + 2]->enable(TIME_STEP);
     }
+    DELAY(500);
     double f_b_position = psSensors[psFBase]->getValue(), b_b_position = psSensors[psBBase]->getValue();
     double cu_time = robot->getTime(), c_time = robot->getTime();
     while (robot->step(TIME_STEP) != -1)
@@ -1114,6 +1129,7 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
     {
         psSensors[i + 2]->disable();
     }
+    DELAY(500);
 }
 
 void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
@@ -1236,6 +1252,7 @@ void ALIGN_TO_OBJECT(float distance)
     {
         obSensors[i]->enable(TIME_STEP);
     }
+    DELAY(500);
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
@@ -1243,9 +1260,9 @@ void ALIGN_TO_OBJECT(float distance)
         float front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
         if (front < distance || left < distance || right < distance)
         {
+            cout << "Front : " << front << "Left : " << left << "Right : " << right << endl;
             break;
         }
-        cout<<"Front : "<<front<<"Left : "<<left<<"Right : "<<right<<endl;
 
         error = (front - left) - (front - right);
 
@@ -1265,6 +1282,7 @@ void ALIGN_TO_OBJECT(float distance)
     {
         obSensors[i]->disable();
     }
+    DELAY(500);
     return;
 }
 
@@ -1272,6 +1290,7 @@ void OBJECT_CONFIRMATION()
 {
     obSensors[FRONT_IR]->enable(robot->step(TIME_STEP) != -1);
     obSensors[BACK_IR]->enable(robot->step(TIME_STEP) != -1);
+    DELAY(500);
     if (object_state == 1 || object_state == 3)
     {
         BASE_ARM_SWAP(2, 1);
@@ -1287,7 +1306,7 @@ void OBJECT_CONFIRMATION()
     else if (object_state == 2 || object_state == 4)
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) <  ARM_DISTANCE_FORWARD)
+        if (OBJECT_IR_READ(FRONT_IR) < ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT();
         }
@@ -1299,7 +1318,7 @@ void OBJECT_CONFIRMATION()
     else
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) <  ARM_DISTANCE_FORWARD)
+        if (OBJECT_IR_READ(FRONT_IR) < ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT(1);
         }
@@ -1310,6 +1329,7 @@ void OBJECT_CONFIRMATION()
     }
     obSensors[FRONT_IR]->disable();
     obSensors[BACK_IR]->disable();
+    DELAY(500);
     return;
 }
 
@@ -1433,7 +1453,7 @@ holeObjects IDENTIFY_OBJECT()
 
 void ALIGN_TO_CYLINDER()
 {
-    DELAY(2000);
+    DELAY(1500);
     SLIDER_ARM_MOVEMENT(1);
     BASE_ARM_SWAP(2);
     GO_FORWARD(8, 1);
@@ -1464,6 +1484,7 @@ bool DETECT_OBJECT()
 {
     // sensor intiation
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+    DELAY(500);
     float r_distance = 0;
     ALIGN_TO_DIR(WEST);
     GO_FORWARD(back_up_distance, 1);
@@ -1476,6 +1497,7 @@ bool DETECT_OBJECT()
             ALIGN_TO_DIR(EAST);
             GO_FORWARD(30);
             obSensors[FRONT_IR_SHARP]->disable();
+            DELAY();
             return ROUND_SEARCH();
         }
         if (r_distance < 100) // Typical wall distance 81
@@ -1496,10 +1518,11 @@ bool DETECT_OBJECT()
             break;
         }
     }
-    cout<<"Sharp IR Reading : "<<r_distance<<endl;
+    cout << "Sharp IR Reading : " << r_distance << endl;
     GO_FORWARD(r_distance - 30);
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
+    DELAY();
     return true;
 }
 
@@ -1507,7 +1530,7 @@ bool ROUND_SEARCH()
 {
     // sensor intiation
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
-
+    DELAY(500);
     float preValue = 0, irValue = 0;
     bool breaked = false;
 
@@ -1530,6 +1553,7 @@ bool ROUND_SEARCH()
     }
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
+    DELAY(500);
     return breaked ? true : false;
 }
 
@@ -1671,6 +1695,7 @@ void STOP_ROBOT()
     left_speed = 0, right_speed = 0;
     motors[LEFT]->setVelocity(0);
     motors[RIGHT]->setVelocity(0);
+    DELAY(300);
 }
 
 void SET_VELOCITY()
