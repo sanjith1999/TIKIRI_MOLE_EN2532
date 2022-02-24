@@ -7,7 +7,7 @@ int main()
     do
     {
         count++;
-        cout << count << endl;
+        cout << min(3,4) << endl;
         
     }while(count<5);
     return 1;

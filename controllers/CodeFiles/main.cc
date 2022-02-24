@@ -36,13 +36,13 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 9.4
+#define ARM_DISTANCE_FORWARD 9.2
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
-#define BALL_SELECTION RED
-#define CYLINDER_HOLE_ALIGN -1.15
-#define CUBE_HOLE_ALIGN -4.4
+#define BALL_SELECTION BLUE
+#define CYLINDER_HOLE_ALIGN -0.3
+#define CUBE_HOLE_ALIGN -4.7
 #define HOLE_DEPTH 3
 #define ARM_DISTANCE_BALL 10
 
@@ -58,7 +58,7 @@ string laserNames = "right_laser";
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
 string compassNames = {"compass"};
 string obIRNames[9] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object", "front_ir_sharp"};
-string holeObject[3] = {"CYLINDER_CIRCLE", "CYLINDER_CURVED", "CUBE"};
+string holeObject[4] = {"CYLINDER_CIRCLE", "CYLINDER_CURVED", "CUBE", "LOST"};
 
 //------------------------------------------------------------------------------------------------------------------------------//
 /* NUMBER VARIABLES */
@@ -144,7 +144,8 @@ enum holeObjects
 {
     CYLINDER_CIRCLE = 0,
     CYLINDER_CURVED,
-    CUBE
+    CUBE,
+    UNDEFINED
 };
 
 enum directions
@@ -265,9 +266,6 @@ void SET_VELOCITY();
 void STOP_ROBOT();
 void CLEAR_VARIABLES();
 
-// FUN COMMENTS
-void MAKE_FUN1(holeObjects var);
-
 //------------------------------------------------------------------------------------------------------------------------------//
 int main(int argc, char **argv)
 {
@@ -290,7 +288,7 @@ int main(int argc, char **argv)
     motors[FRONT_ARM_RIGHT]->setVelocity(10);
     motors[BACK_ARM_LEFT]->setVelocity(10);
     motors[BACK_ARM_RIGHT]->setVelocity(10);
-    motors[KICKER]->setVelocity(10);
+    motors[KICKER]->setVelocity(30);
 
     motors[FRONT_ARM_BASE]->setPosition(0);
     motors[BACK_ARM_BASE]->setPosition(-0.2);
@@ -404,6 +402,8 @@ void TASK_MANAGER()
             {
                 PICK_OBJECT();
             }
+            BASE_ARM_SWAP(2);
+            BASE_ARM_SWAP(2, 1);
             ALIGN_TO_DIR(NORTH);
             while (robot->step(TIME_STEP) != -1)
             {
@@ -430,7 +430,7 @@ void TASK_MANAGER()
         }
         GO_FORWARD(65);
         ALIGN_TO_DIR(SOUTH);
-        GO_FORWARD(10, 1);
+        GO_FORWARD(3, 1);
         // HOLE RIGHT ALIGN RIGHT
         laserValue = LASER_MAP(RIGHT_LAS);
         while (robot->step(TIME_STEP) != -1)
@@ -468,7 +468,7 @@ void TASK_MANAGER()
         SLIDER_ARM_MOVEMENT(1);
         GO_FORWARD(5, 1);
         SLIDER_ARM_MOVEMENT(2);
-        GO_FORWARD(6.8, 0, 3);
+        GO_FORWARD(7, 0, 3);
         DELAY(500);
         GO_FORWARD(15, 1);
         BASE_ARM_SWAP(2);
@@ -495,7 +495,7 @@ void TASK_MANAGER()
                     STOP_ROBOT();
                     GO_FORWARD(CUBE_HOLE_ALIGN);
                     ALIGN_TO_DIR(EAST);
-                    GO_FORWARD(13.5, 1);
+                    GO_FORWARD(12, 1);
                     break;
                 }
             }
@@ -516,7 +516,7 @@ void TASK_MANAGER()
         DELAY(500);
         SLIDER_ARM_MOVEMENT(2, 1);
         GO_FORWARD(11, 1);
-        GO_FORWARD(32);
+        GO_FORWARD(25);
         BASE_ARM_SWAP(2, 1);
         SLIDER_ARM_MOVEMENT(1);
 
@@ -524,7 +524,6 @@ void TASK_MANAGER()
         break;
 
     case BALL_PICK:
-        compass->disable();
         ALIGN_TO_DIR(NORTH);
         GO_FORWARD(10);
         DETECT_BALL();
@@ -565,6 +564,7 @@ void TASK_MANAGER()
         BASE_ARM_SWAP(), SLIDER_ARM_MOVEMENT(1);
         GO_FORWARD(5);
         // kick the ball
+        motors[KICKER]->setPosition(INFINITY);
         tm_time = robot->getTime();
         while (robot->step(TIME_STEP) != -1)
         {
@@ -1010,10 +1010,11 @@ void GO_FORWARD(float distance_, short int dir, float deceleration)
         }
         else
         {
+            STOP_ROBOT();
             break;
         }
     }
-    STOP_ROBOT();
+
     return;
 }
 
@@ -1059,13 +1060,13 @@ void AIM_TO_GOAL()
     sonarValue = SONAR_MAP(FRONT_WALL);
     if (BALL_COLOR == BLUE)
     {
-        TURN_ANGLE(7);
+        TURN_ANGLE(10);
         left_speed = -(base_speed_slow - 1);
         right_speed = (base_speed_slow - 1);
     }
     else
     {
-        TURN_ANGLE(7, 1);
+        TURN_ANGLE(10, 1);
         left_speed = (base_speed_slow - 1);
         right_speed = -(base_speed_slow - 1);
     }
@@ -1085,11 +1086,11 @@ void AIM_TO_GOAL()
 
     if (BALL_COLOR == BLUE)
     {
-        TURN_ANGLE(2.5, 1);
+        TURN_ANGLE(3.2, 1);
     }
     else
     {
-        TURN_ANGLE(2.5);
+        TURN_ANGLE(2.2);
     }
     return;
 }
@@ -1115,7 +1116,7 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
                 if ((c_time > cu_time + ARM_BASE_DELAY) && object_state != 0)
                 {
                     motors[FRONT_ARM_BASE]->setPosition(f_b_position - 0.2);
-                    TURN_ANGLE(5, 1);
+                    TURN_ANGLE(3, 1);
                     cu_time = c_time;
                 }
                 if (1.3 - f_b_position > 0.001)
@@ -1158,8 +1159,8 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
                 if ((c_time > cu_time + ARM_BASE_DELAY) && object_state != 0)
                 {
                     motors[BACK_ARM_BASE]->setPosition(b_b_position - 0.2);
-                    TURN_ANGLE(10, 1);
-                    GO_FORWARD(1);
+                    TURN_ANGLE(5, 1);
+                    GO_FORWARD(0.5);
                     cu_time = c_time;
                 }
 
@@ -1246,11 +1247,13 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
             {
                 if (abs(fl_s_position + 0.005) > 0.002 && abs(fr_s_position - 0.005) > 0.002)
                 {
-                    motors[FRONT_ARM_LEFT]->setPosition(APPROACH_VALUE(fl_s_position, -0.006));
-                    motors[FRONT_ARM_RIGHT]->setPosition(APPROACH_VALUE(fr_s_position, 0.006));
+                    motors[FRONT_ARM_LEFT]->setPosition(APPROACH_VALUE(fl_s_position, -0.009));
+                    motors[FRONT_ARM_RIGHT]->setPosition(APPROACH_VALUE(fr_s_position, 0.009));
                 }
                 else
                 {
+                    motors[FRONT_ARM_LEFT]->setPosition(APPROACH_VALUE(fl_s_position, -0.009));
+                    motors[FRONT_ARM_RIGHT]->setPosition(APPROACH_VALUE(fr_s_position, 0.009));
                     return;
                 }
             }
@@ -1314,17 +1317,15 @@ void SLIDER_ARM_MOVEMENT(short int s_position, short int c_arm)
 // OBJECT PICKING-PLACING FUNCTIONS
 void ALIGN_TO_OBJECT(float distance)
 {
-    DELAY(500);
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     float front = 0, left = 0, right = 0;
-    int cofficient = 1;
+    int cofficient = 2;
     while (robot->step(TIME_STEP) != -1)
     {
-        front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
         motors[KICKER]->setPosition(0);
+        front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
         if (front < distance || left < distance || right < distance)
         {
-            cout << "Front : " << front << "Left : " << left << "Right : " << right << endl;
             break;
         }
 
@@ -1363,7 +1364,7 @@ void OBJECT_CONFIRMATION()
         BASE_ARM_SWAP(2);
         if (OBJECT_IR_READ(FRONT_IR) < ARM_DISTANCE_FORWARD)
         {
-            SLIDER_ARM_MOVEMENT();
+            SLIDER_ARM_MOVEMENT(1);
         }
         else
         {
@@ -1396,13 +1397,12 @@ void PICK_OBJECT()
         SLIDER_ARM_MOVEMENT();
         objt = IDENTIFY_OBJECT();
         cout << holeObject[objt] << endl;
-        MAKE_FUN1(objt);
         if (objt == CUBE)
         {
             DELAY(300);
             SLIDER_ARM_MOVEMENT(1);
             BASE_ARM_SWAP(2);
-            GO_FORWARD(6, 1);
+            GO_FORWARD(4.5, 1);
             TURN_ANGLE(180, 1);
             GO_FORWARD(5, 1);
             BASE_ARM_SWAP(0, 1);
@@ -1412,6 +1412,11 @@ void PICK_OBJECT()
         else if (objt == CYLINDER_CIRCLE)
         {
             ALIGN_TO_CYLINDER();
+        }
+        else if (objt == UNDEFINED)
+        {
+            STOP_ROBOT();
+            return;
         }
     }
     else if (object_state == 1)
@@ -1439,51 +1444,55 @@ holeObjects IDENTIFY_OBJECT()
 {
     float front = 0, left = 0, right = 0, back = 0;
     holeObjects objec;
+    short int count = 0;
     // intiating sensors
     for (int i = 4; i < 8; i++)
     {
         obSensors[i]->enable(TIME_STEP);
     }
     DELAY(250);
-    front = OBJECT_IR_READ(FRONT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
-    cout << "front : " << front << " ,back : " << back << endl;
+    front = OBJECT_IR_READ(FRONT_OBJECT);
     // confirming front sensor in range
-    if (front > 10)
+    if (front > 8)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
         do
         {
-            GO_FORWARD(0.25, 1);
+            count++;
+            GO_FORWARD(0.2, 1);
             front = OBJECT_IR_READ(FRONT_OBJECT);
-        } while (front > 10);
+            if (count > 10)
+                return UNDEFINED;
+        } while (front > 8);
+        STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     // confirming back sensor in range
-    if (back > 10)
+    back = OBJECT_IR_READ(BACK_OBJECT);
+    if (back > 8)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
         do
         {
-            GO_FORWARD(0.25);
+            count++;
+            GO_FORWARD(0.2);
             back = OBJECT_IR_READ(BACK_OBJECT);
-        } while (back > 10);
-
+            if (count > 10)
+                return UNDEFINED;
+        } while (back > 8);
+        STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
-    cout << "Left IR Reading : " << left << endl;
-    cout << "Right IR Reading : " << right << endl;
-    cout << "Front IR Reading : " << front << endl;
-    cout << "Back IR Reading : " << back << endl;
     if (IN_RANGE(back, left) && IN_RANGE(back, right) && IN_RANGE(front, back))
     {
         objec = CUBE;
     }
-    else if (IN_RANGE(right, left) && (left - back > 0.2 || left - front > 0.2))
+    else if (IN_RANGE(right, left) && (left - back > 0.1 && left - front > 0.1))
     {
         objec = CYLINDER_CURVED;
     }
@@ -1504,7 +1513,7 @@ holeObjects IDENTIFY_OBJECT()
 
 void ALIGN_TO_CYLINDER()
 {
-    DELAY(1500);
+    DELAY(2000);
     SLIDER_ARM_MOVEMENT(1);
     BASE_ARM_SWAP(2);
     GO_FORWARD(8, 1);
@@ -1534,6 +1543,7 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+    float current_time = robot->getTime(), start_time = robot->getTime();
 
     float r_distance = 0;
     ALIGN_TO_DIR(WEST);
@@ -1549,7 +1559,7 @@ bool DETECT_OBJECT()
             DELAY();
             return ROUND_SEARCH();
         }
-        if (r_distance < 100) // Typical wall distance 81
+        if (r_distance < 85) // Typical wall distance 81
         {
             STOP_ROBOT();
             break;
@@ -1557,18 +1567,40 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(75, 1);
+    TURN_ANGLE(80, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         motors[KICKER]->setPosition(0);
         TURN_ANGLE(0.2, 1);
         r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
-        if (r_distance < 100)
+
+        if (r_distance < 130)
         {
+            STOP_ROBOT();
+            TURN_ANGLE(1.5, 1);
             break;
         }
+        current_time = robot->getTime();
+        if (current_time - start_time > 5)
+        {
+            ALIGN_TO_DIR(NORTH);
+            GO_FORWARD(10);
+            TURN_ANGLE(20);
+            start_time = current_time;
+            continue;
+        }
     }
-    GO_FORWARD(r_distance - 30);
+    while (robot->step(TIME_STEP) != -1)
+    {
+        if (OBJECT_IR_READ(FRONT_IR) < 38 || OBJECT_IR_READ(LEFT_ALIGN_IR) < 38 || OBJECT_IR_READ(RIGHT_ALIGN_IR) < 38)
+        {
+            STOP_ROBOT();
+            break;
+        }
+        left_speed = base_speed_slow, right_speed = base_speed_slow;
+        SET_VELOCITY();
+    }
+    // GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 36);
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
 }
@@ -1598,7 +1630,9 @@ bool ROUND_SEARCH()
         GO_FORWARD(irValue - 36);
     }
     obSensors[FRONT_IR_SHARP]->disable();
-    return breaked ? true : false;
+    if (breaked)
+        return true;
+    return false;
 }
 
 void DETECT_BALL()
@@ -1624,21 +1658,37 @@ void DETECT_BALL()
             ALIGN_TO_DIR(SOUTH);
             if (BALL_COLOR == color)
             {
-                while (robot->step(TIME_STEP) != -1)
+                if (COLOR_DETECTION(RIGHT_CAMERA) == BLACK)
                 {
-                    if (COLOR_DETECTION(RIGHT_CAMERA) == YELLOW || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
+                    while (robot->step(TIME_STEP) != -1)
                     {
-                        STOP_ROBOT();
-                        break;
+                        if (COLOR_DETECTION(RIGHT_CAMERA) == YELLOW || COLOR_DETECTION(LEFT_CAMERA) == YELLOW)
+                        {
+                            STOP_ROBOT();
+                            break;
+                        }
+                        left_speed = base_speed, right_speed = base_speed;
+                        SET_VELOCITY();
                     }
-                    left_speed = base_speed, right_speed = base_speed;
-                    SET_VELOCITY();
+                }
+                else
+                {
+                    while (robot->step(TIME_STEP) != -1)
+                    {
+
+                        if (COLOR_DETECTION(RIGHT_CAMERA) == BLACK || COLOR_DETECTION(LEFT_CAMERA) == BLACK)
+                        {
+                            STOP_ROBOT();
+                            break;
+                        }
+                        left_speed = -base_speed, right_speed = -base_speed;
+                        SET_VELOCITY();
+                    }
                 }
                 return;
             }
             else
             {
-
                 SLIDER_ARM_MOVEMENT(1);
                 DETECT_BALL();
                 return;
@@ -1648,6 +1698,12 @@ void DETECT_BALL()
     }
     ALIGN_TO_DIR(NORTH);
     GO_FORWARD(15);
+    if (SONAR_MAP(FRONT_WALL) < 30)
+    {
+        GO_FORWARD(60, 1);
+        ALIGN_TO_DIR(WEST);
+        GO_FORWARD(20, 1);
+    }
     DETECT_BALL();
     return;
 }
@@ -1751,26 +1807,8 @@ void SET_VELOCITY()
 
 void CLEAR_VARIABLES()
 {
-    //CLEARING VARIABLES RELATED TO PID CONTROL
+    // CLEARING VARIABLES RELATED TO PID CONTROL
     I = 0, last_error = 0;
-}
-
-// FUN COMMENTS
-void MAKE_FUN1(holeObjects var)
-{
-    switch (var)
-    {
-    case CYLINDER_CIRCLE:
-        cout << "OKAY...HOLD ON I AM COMING OTHER WAY AROUND" << endl;
-        break;
-    case CYLINDER_CURVED:
-        cout << "OH! OKAY... MY TASK IS EASY NOW..." << endl;
-        break;
-    case CUBE:
-        cout << "LET ME SEE FROM BACK SIDE...." << endl;
-        break;
-    }
-    return;
 }
 
 //-----------------------------------------------------------------**THE END**-----------------------------------------------------------------------------//
