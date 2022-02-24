@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = LINE_FOLLOWING;
+mainTask CURRENT_TASK = REACH_END;
 static bool TERMINATION = false;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
@@ -234,6 +234,7 @@ void ALIGN_TO_DIR(directions destination = NORTH);
 void TURN_90(short int dir = 0);
 void TURN_ANGLE(float angle = 45, short int dir = 0);
 void GO_FORWARD(float distance_ = CENTER_DISTANCE, short int dir = 0, float deceleration = 0);
+void COLOR_LINE_FOLLOWING();
 
 // ARM RELATED FUNCTIONS
 void BASE_ARM_SWAP(short int f_position = 0, short int c_arm = 0);
@@ -302,6 +303,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < 8; i++)
     { // setting up the 8 pannel of ir sensors of the robot
         irPanel[i] = robot->getDistanceSensor(irNames[i]);
+        irPanel[i]->enable(TIME_STEP);
     }
 
     for (int i = 0; i < 8; i++)
@@ -523,28 +525,16 @@ void TASK_MANAGER()
         GO_FORWARD(10, 1);
         ALIGN_TO_DIR(WEST);
 
-        irPanel[0]->enable(TIME_STEP);
-        irPanel[3]->enable(TIME_STEP);
-        irPanel[7]->enable(TIME_STEP);
-        DELAY(500);
-
         while (robot->step(TIME_STEP) != -1)
         {
-            if (irPanel[0]->getValue() < 100 && irPanel[1]->getValue() < 100 && irPanel[2]->getValue() < 100)
+            if (irPanel[0]->getValue() < 100 && irPanel[3]->getValue() < 100 && irPanel[7]->getValue() < 100)
             {
                 STOP_ROBOT();
                 break;
             }
             right_speed = base_speed, left_speed = base_speed;
             SET_VELOCITY();
-        }
-
-        irPanel[0]->disable();
-        irPanel[3]->disable();
-        irPanel[7]->disable();
-        DELAY(500);
-
-        compass->disable();                 // disabling compass
+        }                // disabling compass
         laserSensors[RIGHT_LAS]->disable(); // diable laser sensor
         DELAY(500);
 
@@ -552,7 +542,13 @@ void TASK_MANAGER()
         break;
     case REACH_END:
         LINE_FOLLOW(true);
+        GO_FORWARD();
+        if(BALL_COLOR==BLUE){GO_FORWARD(5);}
+        else{TURN_90(),GO_FORWARD(5);}
+        COLOR_LINE_FOLLOWING();
         CURRENT_TASK = KICK_BALL;
+        break;
+
     case KICK_BALL:
         // kick the ball
         tm_time = robot->getTime();
@@ -565,7 +561,7 @@ void TASK_MANAGER()
             }
             motors[KICKER]->setVelocity(-1);
         }
-        cout << "HOOAH!!!!...... I THINK I AM DONE..... " << endl;
+        cout << "MAN IT SUCKS.....!!!! " << endl;
         STOP_ROBOT();
         TERMINATION = true;
         break;
@@ -733,17 +729,10 @@ int ERROR_CALC()
 
 void LINE_FOLLOW(bool dotted)
 {
-    // sensor Intialization
-    for (int i = 0; i < 8; i++)
-    {
-        irPanel[i]->enable(TIME_STEP);
-    }
-
     int acceleration = 0;
-
     // Normal Line Following
     double kp = 2.71, kd = 0.3, ki = 0.01;
-    int error, P, D;
+    int error, P=0, D=0;
     if (dotted)
     {
         i_unit->enable(TIME_STEP);
@@ -765,7 +754,7 @@ void LINE_FOLLOW(bool dotted)
                 kp = 0.01, ki = 0, kd = 0.006;
                 acceleration = -3;
             }
-            if (irPanel[0]->getValue() < 750 && irPanel[1]->getValue() < 750 && irPanel[2]->getValue() < 750)
+            if (irPanel[0]->getValue() < 100 && irPanel[1]->getValue() < 100 && irPanel[2]->getValue() < 100)
             {
                 cout << "DOTTED LINE FOLLOWING TERMINATION" << endl;
                 i_unit->disable();
@@ -792,12 +781,6 @@ void LINE_FOLLOW(bool dotted)
     }
 
     STOP_ROBOT(), CLEAR_VARIABLES();
-    // sensor terminations
-    for (int i = 0; i < 8; i++)
-    {
-        irPanel[i]->disable();
-    }
-
     return;
 }
 
@@ -1013,6 +996,42 @@ void GO_FORWARD(float distance_, short int dir, float deceleration)
         }
     }
     STOP_ROBOT();
+    return;
+}
+
+void COLOR_LINE_FOLLOWING()
+{
+    double kp = 2.71, kd = 0.3, ki = 0.01, correction = 0;
+    int error = 0, P = 0, D = 0;
+
+    short int left_color = (COLOR_DETECTION(LEFT_CAMERA) == BLUE || COLOR_DETECTION(LEFT_CAMERA) == RED) ? 1 : 0;
+    short int right_color = (COLOR_DETECTION(RIGHT_CAMERA) == BLUE || COLOR_DETECTION(RIGHT_CAMERA) == RED) ? 1 : 0;
+
+    while (robot->step(TIME_STEP) != -1)
+    {
+        left_color = (COLOR_DETECTION(LEFT_CAMERA) == BLUE || COLOR_DETECTION(LEFT_CAMERA) == RED) ? 1 : 0;
+        right_color = (COLOR_DETECTION(RIGHT_CAMERA) == BLUE || COLOR_DETECTION(RIGHT_CAMERA) == RED) ? 1 : 0;
+
+        error = (left_color * 100 - right_color * 100);
+        if (error == 0)
+        {
+            I = 0;
+        }
+        P = error;
+        D = error - last_error;
+
+        last_error = error;
+        correction = (kd * D + kp * P + ki * I) / 80;
+
+        if (irPanel[0]->getValue() < 100 && irPanel[3]->getValue() < 100 && irPanel[7]->getValue() < 100)
+        {
+            STOP_ROBOT();
+            break;
+        }
+        left_speed = base_speed - correction, right_speed = base_speed + correction;
+        SET_VELOCITY();
+    }
+    CLEAR_VARIABLES();
     return;
 }
 
