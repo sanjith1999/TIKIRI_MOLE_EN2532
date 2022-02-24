@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = LINE_FOLLOWING;
+mainTask CURRENT_TASK = MAZE_SOLVE;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
 // Motor Variables
@@ -792,15 +792,10 @@ void WALL_FOLLOW()
     float limit_wall = WALL_LIMIT;
     float left_ds_value = SONAR_MAP(LEFT_WALL), right_ds_value = SONAR_MAP(RIGHT_WALL), right_ds_value2 = SONAR_MAP(RIGHT_WALL2), front_ds_value = SONAR_MAP(FRONT_WALL);
 
-    auto keep_position = [&]()
-    {
-        if (right_ds_value2 < limit_wall && right_ds_value < limit_wall)
-        {
-            TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
-        }
-    };
+    TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
+
     GO_FORWARD(5);
-    keep_position();
+    TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
     MINOR_CORRECTION_WALL();
 
     while (robot->step(TIME_STEP) != -1)
@@ -813,13 +808,16 @@ void WALL_FOLLOW()
         {
             break;
         }
-        keep_position();
-        if (right_ds_value2 < limit_wall && right_ds_value < limit_wall && turned)
+        if (right_ds_value2 < limit_wall && right_ds_value < limit_wall)
         {
-            GO_FORWARD(3, 1);
-            MINOR_CORRECTION_WALL();
-            GO_FORWARD(3);
-            turned = false;
+            TURN_ANGLE(asin((SONAR_MAP(RIGHT_WALL2) - SONAR_MAP(RIGHT_WALL)) / 8) * 180 / 3.14);
+            if (turned)
+            {
+                GO_FORWARD(3, 1);
+                MINOR_CORRECTION_WALL();
+                GO_FORWARD(3);
+                turned = false;
+            }
         }
 
         if (right_ds_value > limit_wall)
@@ -848,10 +846,9 @@ void WALL_FOLLOW()
         else if ((left_ds_value < limit_wall) && (front_ds_value < limit_wall) && (right_ds_value < limit_wall))
         {
             MINOR_CORRECTION_WALL(9);
-            TURN_ANGLE(180);
+            TURN_90(),TURN_90();
             GO_FORWARD(5, 1);
             MINOR_CORRECTION_WALL();
-            keep_position();
             turned = true;
             double_turn = false;
             // cout << "DEAD END :" << SONAR_MAP(RIGHT_WALL) << endl;
@@ -1248,6 +1245,7 @@ void ALIGN_TO_OBJECT(float distance)
         {
             break;
         }
+        cout<<"Front : "<<front<<"Left : "<<left<<"Right : "<<right<<endl;
 
         error = (front - left) - (front - right);
 
@@ -1289,7 +1287,7 @@ void OBJECT_CONFIRMATION()
     else if (object_state == 2 || object_state == 4)
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD)
+        if (OBJECT_IR_READ(FRONT_IR) <  ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT();
         }
@@ -1301,7 +1299,7 @@ void OBJECT_CONFIRMATION()
     else
     {
         BASE_ARM_SWAP(2);
-        if (OBJECT_IR_READ(FRONT_IR) < 0.7 * ARM_DISTANCE_FORWARD)
+        if (OBJECT_IR_READ(FRONT_IR) <  ARM_DISTANCE_FORWARD)
         {
             SLIDER_ARM_MOVEMENT(1);
         }
@@ -1318,9 +1316,9 @@ void OBJECT_CONFIRMATION()
 void PICK_OBJECT()
 {
     holeObjects objt;
-    (object_state != 0) ? ALIGN_TO_OBJECT() : STOP_ROBOT();
     if (object_state == 2 || object_state == 4)
     {
+        ALIGN_TO_OBJECT();
         GO_FORWARD(ARM_DISTANCE_FORWARD);
         BASE_ARM_SWAP();
         SLIDER_ARM_MOVEMENT();
@@ -1346,6 +1344,7 @@ void PICK_OBJECT()
     }
     else if (object_state == 1)
     {
+        ALIGN_TO_OBJECT();
         TURN_ANGLE(180);
         GO_FORWARD(ARM_DISTANCE_BACKWARD, 1);
         BASE_ARM_SWAP(0, 1);
@@ -1354,6 +1353,7 @@ void PICK_OBJECT()
 
     else
     {
+        STOP_ROBOT();
         GO_FORWARD(ARM_DISTANCE_FORWARD);
         BASE_ARM_SWAP();
         SLIDER_ARM_MOVEMENT(2);
@@ -1478,7 +1478,7 @@ bool DETECT_OBJECT()
             obSensors[FRONT_IR_SHARP]->disable();
             return ROUND_SEARCH();
         }
-        if (r_distance < 80) // Typical wall distance 81
+        if (r_distance < 100) // Typical wall distance 81
         {
             STOP_ROBOT();
             break;
@@ -1486,7 +1486,7 @@ bool DETECT_OBJECT()
         left_speed = base_speed, right_speed = base_speed;
         SET_VELOCITY();
     }
-    TURN_ANGLE(80, 1);
+    TURN_ANGLE(75, 1);
     while (robot->step(TIME_STEP) != -1)
     {
         TURN_ANGLE(0.2, 1);
@@ -1496,11 +1496,8 @@ bool DETECT_OBJECT()
             break;
         }
     }
-    GO_FORWARD(r_distance - 30,1);
-/*     if (r_distance > 30) // IR range
-    {
-        GO_FORWARD(r_distance - 30);
-    } */
+    cout<<"Sharp IR Reading : "<<r_distance<<endl;
+    GO_FORWARD(r_distance - 30);
     // sensor termination
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
@@ -1550,6 +1547,7 @@ void DETECT_BALL()
         {
             GO_FORWARD(f_distance - ARM_DISTANCE_BALL);
             STOP_ROBOT();
+            DELAY();
             PICK_OBJECT();
             BASE_ARM_SWAP(2);
             cout << colorNames[COLOR_DETECTION(FRONT_CAMERA)] << endl;
