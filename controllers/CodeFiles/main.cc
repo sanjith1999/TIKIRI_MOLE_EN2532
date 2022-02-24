@@ -1113,7 +1113,7 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
                 if ((c_time > cu_time + ARM_BASE_DELAY) && object_state != 0)
                 {
                     motors[FRONT_ARM_BASE]->setPosition(f_b_position - 0.2);
-                    TURN_ANGLE(5, 1);
+                    TURN_ANGLE(3,1);
                     cu_time = c_time;
                 }
                 if (1.3 - f_b_position > 0.001)
@@ -1156,8 +1156,8 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
                 if ((c_time > cu_time + ARM_BASE_DELAY) && object_state != 0)
                 {
                     motors[BACK_ARM_BASE]->setPosition(b_b_position - 0.2);
-                    TURN_ANGLE(10, 1);
-                    GO_FORWARD(1);
+                    TURN_ANGLE(5, 1);
+                    GO_FORWARD(0.5);
                     cu_time = c_time;
                 }
 
@@ -1314,12 +1314,13 @@ void ALIGN_TO_OBJECT(float distance)
 {
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     float front = 0, left = 0, right = 0;
-    int cofficient = 6;
+    int cofficient = 10;
     while (robot->step(TIME_STEP) != -1)
     {
         motors[KICKER]->setPosition(0);
         front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
-        if (front < distance || left < distance || right < distance)
+        cout<<SONAR_MAP(FRONT_WALL)<<endl;
+        if (front < distance || left < distance || right < distance || SONAR_MAP(FRONT_WALL)<distance)
         {
             break;
         }
@@ -1440,7 +1441,7 @@ holeObjects IDENTIFY_OBJECT()
         obSensors[i]->enable(TIME_STEP);
     }
     DELAY(250);
-    front = OBJECT_IR_READ(FRONT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
+    front = OBJECT_IR_READ(FRONT_OBJECT);
     cout << "front : " << front << " ,back : " << back << endl;
     // confirming front sensor in range
     if (front > 10)
@@ -1449,23 +1450,25 @@ holeObjects IDENTIFY_OBJECT()
         SLIDER_ARM_MOVEMENT(1);
         do
         {
-            GO_FORWARD(0.25, 1);
+            GO_FORWARD(0.2, 1);
             front = OBJECT_IR_READ(FRONT_OBJECT);
         } while (front > 10);
+        STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
     // confirming back sensor in range
-    else if (back > 10)
+    back = OBJECT_IR_READ(BACK_OBJECT);
+    if (back > 10)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
         do
         {
-            GO_FORWARD(0.25);
+            GO_FORWARD(0.2);
             back = OBJECT_IR_READ(BACK_OBJECT);
         } while (back > 10);
-
+        STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
         DELAY(250);
     }
@@ -1544,7 +1547,7 @@ bool DETECT_OBJECT()
             DELAY();
             return ROUND_SEARCH();
         }
-        if (r_distance < 100) // Typical wall distance 81
+        if (r_distance < 110) // Typical wall distance 81
         {
             STOP_ROBOT();
             break;
@@ -1558,12 +1561,14 @@ bool DETECT_OBJECT()
         motors[KICKER]->setPosition(0);
         TURN_ANGLE(0.2, 1);
         r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
-        if (r_distance < 100)
+        if (r_distance < 120 )
         {
+            STOP_ROBOT();
+            TURN_ANGLE(1,1);
             break;
         }
     }
-    GO_FORWARD(r_distance - 30);
+    GO_FORWARD(min(r_distance,SONAR_MAP(FRONT_WALL)) - 30);
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
 }
