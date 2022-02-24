@@ -402,6 +402,8 @@ void TASK_MANAGER()
             {
                 PICK_OBJECT();
             }
+            BASE_ARM_SWAP(2);
+            BASE_ARM_SWAP(2, 1);
             ALIGN_TO_DIR(NORTH);
             while (robot->step(TIME_STEP) != -1)
             {
@@ -1572,7 +1574,7 @@ bool DETECT_OBJECT()
         motors[KICKER]->setPosition(0);
         TURN_ANGLE(0.2, 1);
         r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
-        
+
         if (r_distance < 130)
         {
             STOP_ROBOT();
@@ -1580,7 +1582,22 @@ bool DETECT_OBJECT()
             break;
         }
         current_time = robot->getTime();
-        if (current_time - start_time > 5) return false;
+        if (current_time - start_time > 5)
+        {
+            ALIGN_TO_DIR(NORTH);
+            GO_FORWARD(10);
+            TURN_ANGLE(15);
+            start_time = current_time;
+            continue;
+        }
+    }
+    if (r_distance > 90)
+    {
+        TURN_ANGLE(6, 1);
+    }
+    else
+    {
+        TURN_ANGLE(2, 1);
     }
     GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 30);
     obSensors[FRONT_IR_SHARP]->disable();
