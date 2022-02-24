@@ -58,7 +58,7 @@ string laserNames = "right_laser";
 string colorNames[7] = {"RED", "BLUE", "MAGENTA", "BLACK", "YELLOW", "CYAN", "WHITE"};
 string compassNames = {"compass"};
 string obIRNames[9] = {"front_ir", "front_ir_left", "front_ir_right", "back_ir", "front_object", "left_object", "right_object", "back_object", "front_ir_sharp"};
-string holeObject[3] = {"CYLINDER_CIRCLE", "CYLINDER_CURVED", "CUBE"};
+string holeObject[4] = {"CYLINDER_CIRCLE", "CYLINDER_CURVED", "CUBE", "LOST"};
 
 //------------------------------------------------------------------------------------------------------------------------------//
 /* NUMBER VARIABLES */
@@ -1011,10 +1011,11 @@ void GO_FORWARD(float distance_, short int dir, float deceleration)
         }
         else
         {
+            STOP_ROBOT();
             break;
         }
     }
-    STOP_ROBOT();
+
     return;
 }
 
@@ -1319,11 +1320,12 @@ void ALIGN_TO_OBJECT(float distance)
 {
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     float front = 0, left = 0, right = 0;
-    int cofficient = 1;
+    int cofficient = 2;
     while (robot->step(TIME_STEP) != -1)
     {
         motors[KICKER]->setPosition(0);
         front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
+        cout << front << " " << left << " " << right << endl;
         if (front < distance || left < distance || right < distance)
         {
             break;
@@ -1488,10 +1490,6 @@ holeObjects IDENTIFY_OBJECT()
         DELAY(250);
     }
     front = OBJECT_IR_READ(FRONT_OBJECT), left = OBJECT_IR_READ(LEFT_OBJECT), right = OBJECT_IR_READ(RIGHT_OBJECT), back = OBJECT_IR_READ(BACK_OBJECT);
-    /*     cout << "Left IR Reading : " << left << endl;
-        cout << "Right IR Reading : " << right << endl;
-        cout << "Front IR Reading : " << front << endl;
-        cout << "Back IR Reading : " << back << endl; */
     if (IN_RANGE(back, left) && IN_RANGE(back, right) && IN_RANGE(front, back))
     {
         objec = CUBE;
@@ -1594,7 +1592,22 @@ bool DETECT_OBJECT()
             continue;
         }
     }
-    GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 28);
+    start_time = robot->getTime();
+    while (TIME_STEP)
+    {
+        current_time = robot->getTime();
+        if (OBJECT_IR_READ(FRONT_IR) < 38 || OBJECT_IR_READ(LEFT_ALIGN_IR) < 38 || OBJECT_IR_READ(RIGHT_ALIGN_IR) < 38)
+        {
+            break;
+        }
+        if (current_time - start_time > 4)
+        {
+            return false;
+        }
+        left_speed = base_speed_slow, right_speed = base_speed_slow;
+        SET_VELOCITY();
+    }
+    // GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 36);
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
 }
