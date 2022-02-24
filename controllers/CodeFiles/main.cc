@@ -36,7 +36,7 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 9.4
+#define ARM_DISTANCE_FORWARD 8.4
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
@@ -466,7 +466,7 @@ void TASK_MANAGER()
         SLIDER_ARM_MOVEMENT(1);
         GO_FORWARD(5, 1);
         SLIDER_ARM_MOVEMENT(2);
-        GO_FORWARD(6.8, 0, 3);
+        GO_FORWARD(7, 0, 3);
         DELAY(500);
         GO_FORWARD(15, 1);
         BASE_ARM_SWAP(2);
@@ -522,7 +522,6 @@ void TASK_MANAGER()
         break;
 
     case BALL_PICK:
-        compass->disable();
         ALIGN_TO_DIR(NORTH);
         GO_FORWARD(10);
         DETECT_BALL();
@@ -1456,7 +1455,7 @@ holeObjects IDENTIFY_OBJECT()
         DELAY(250);
     }
     // confirming back sensor in range
-    if (back > 10)
+    else if (back > 10)
     {
         DELAY(250);
         SLIDER_ARM_MOVEMENT(1);
