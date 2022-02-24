@@ -1751,6 +1751,7 @@ void SET_VELOCITY()
 
 void CLEAR_VARIABLES()
 {
+    //CLEARING VARIABLES RELATED TO PID CONTROL
     I = 0, last_error = 0;
 }
 
