@@ -36,12 +36,12 @@ using namespace std;
 #define WALL_LIMIT 20
 #define LEFT_DISTANCE 10
 #define DELAY_ARM 2
-#define ARM_DISTANCE_FORWARD 8.4
+#define ARM_DISTANCE_FORWARD 9.2
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
 #define BALL_SELECTION RED
-#define CYLINDER_HOLE_ALIGN -1.15
+#define CYLINDER_HOLE_ALIGN 0
 #define CUBE_HOLE_ALIGN -4.4
 #define HOLE_DEPTH 3
 #define ARM_DISTANCE_BALL 10
@@ -144,7 +144,8 @@ enum holeObjects
 {
     CYLINDER_CIRCLE = 0,
     CYLINDER_CURVED,
-    CUBE
+    CUBE,
+    UNDEFINED
 };
 
 enum directions
@@ -265,7 +266,6 @@ void SET_VELOCITY();
 void STOP_ROBOT();
 void CLEAR_VARIABLES();
 
-
 //------------------------------------------------------------------------------------------------------------------------------//
 int main(int argc, char **argv)
 {
@@ -288,7 +288,7 @@ int main(int argc, char **argv)
     motors[FRONT_ARM_RIGHT]->setVelocity(10);
     motors[BACK_ARM_LEFT]->setVelocity(10);
     motors[BACK_ARM_RIGHT]->setVelocity(10);
-    motors[KICKER]->setVelocity(10);
+    motors[KICKER]->setVelocity(30);
 
     motors[FRONT_ARM_BASE]->setPosition(0);
     motors[BACK_ARM_BASE]->setPosition(-0.2);
@@ -1083,11 +1083,11 @@ void AIM_TO_GOAL()
 
     if (BALL_COLOR == BLUE)
     {
-        TURN_ANGLE(2.5, 1);
+        TURN_ANGLE(3.5, 1);
     }
     else
     {
-        TURN_ANGLE(2.5);
+        TURN_ANGLE(3.5);
     }
     return;
 }
@@ -1113,7 +1113,7 @@ void BASE_ARM_SWAP(short int f_position, short int c_arm)
                 if ((c_time > cu_time + ARM_BASE_DELAY) && object_state != 0)
                 {
                     motors[FRONT_ARM_BASE]->setPosition(f_b_position - 0.2);
-                    TURN_ANGLE(3,1);
+                    TURN_ANGLE(3, 1);
                     cu_time = c_time;
                 }
                 if (1.3 - f_b_position > 0.001)
@@ -1314,13 +1314,12 @@ void ALIGN_TO_OBJECT(float distance)
 {
     double kp = 2.71, kd = 0.3, ki = 0.01, error = 0;
     float front = 0, left = 0, right = 0;
-    int cofficient = 10;
+    int cofficient = 1;
     while (robot->step(TIME_STEP) != -1)
     {
         motors[KICKER]->setPosition(0);
         front = OBJECT_IR_READ(FRONT_IR), left = OBJECT_IR_READ(LEFT_ALIGN_IR), right = OBJECT_IR_READ(RIGHT_ALIGN_IR);
-        cout<<SONAR_MAP(FRONT_WALL)<<endl;
-        if (front < distance || left < distance || right < distance || SONAR_MAP(FRONT_WALL)<distance)
+        if (front < distance || left < distance || right < distance)
         {
             break;
         }
@@ -1360,7 +1359,7 @@ void OBJECT_CONFIRMATION()
         BASE_ARM_SWAP(2);
         if (OBJECT_IR_READ(FRONT_IR) < ARM_DISTANCE_FORWARD)
         {
-            SLIDER_ARM_MOVEMENT();
+            SLIDER_ARM_MOVEMENT(1);
         }
         else
         {
@@ -1409,6 +1408,11 @@ void PICK_OBJECT()
         {
             ALIGN_TO_CYLINDER();
         }
+        else if (objt == UNDEFINED)
+        {
+            STOP_ROBOT();
+            return;
+        }
     }
     else if (object_state == 1)
     {
@@ -1435,6 +1439,7 @@ holeObjects IDENTIFY_OBJECT()
 {
     float front = 0, left = 0, right = 0, back = 0;
     holeObjects objec;
+    short int count = 0;
     // intiating sensors
     for (int i = 4; i < 8; i++)
     {
@@ -1442,7 +1447,6 @@ holeObjects IDENTIFY_OBJECT()
     }
     DELAY(250);
     front = OBJECT_IR_READ(FRONT_OBJECT);
-    cout << "front : " << front << " ,back : " << back << endl;
     // confirming front sensor in range
     if (front > 10)
     {
@@ -1450,8 +1454,11 @@ holeObjects IDENTIFY_OBJECT()
         SLIDER_ARM_MOVEMENT(1);
         do
         {
+            count++;
             GO_FORWARD(0.2, 1);
             front = OBJECT_IR_READ(FRONT_OBJECT);
+            if (count > 10)
+                return UNDEFINED;
         } while (front > 10);
         STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
@@ -1465,8 +1472,11 @@ holeObjects IDENTIFY_OBJECT()
         SLIDER_ARM_MOVEMENT(1);
         do
         {
+            count++;
             GO_FORWARD(0.2);
             back = OBJECT_IR_READ(BACK_OBJECT);
+            if (count > 10)
+                return UNDEFINED;
         } while (back > 10);
         STOP_ROBOT();
         SLIDER_ARM_MOVEMENT();
@@ -1481,7 +1491,7 @@ holeObjects IDENTIFY_OBJECT()
     {
         objec = CUBE;
     }
-    else if (IN_RANGE(right, left) && (left - back > 0.2 || left - front > 0.2))
+    else if (IN_RANGE(right, left) && (left - back > 0.1 && left - front > 0.1))
     {
         objec = CYLINDER_CURVED;
     }
@@ -1532,6 +1542,7 @@ void ALIGN_TO_CYLINDER()
 bool DETECT_OBJECT()
 {
     obSensors[FRONT_IR_SHARP]->enable(TIME_STEP);
+    float current_time = robot->getTime(), start_time = robot->getTime();
 
     float r_distance = 0;
     ALIGN_TO_DIR(WEST);
@@ -1547,7 +1558,7 @@ bool DETECT_OBJECT()
             DELAY();
             return ROUND_SEARCH();
         }
-        if (r_distance < 110) // Typical wall distance 81
+        if (r_distance < 85) // Typical wall distance 81
         {
             STOP_ROBOT();
             break;
@@ -1561,14 +1572,17 @@ bool DETECT_OBJECT()
         motors[KICKER]->setPosition(0);
         TURN_ANGLE(0.2, 1);
         r_distance = OBJECT_IR_READ(FRONT_IR_SHARP);
-        if (r_distance < 120 )
+        
+        if (r_distance < 130)
         {
             STOP_ROBOT();
-            TURN_ANGLE(1,1);
+            TURN_ANGLE(1, 1);
             break;
         }
+        current_time = robot->getTime();
+        if (current_time - start_time > 5) return false;
     }
-    GO_FORWARD(min(r_distance,SONAR_MAP(FRONT_WALL)) - 30);
+    GO_FORWARD(min(r_distance, SONAR_MAP(FRONT_WALL)) - 30);
     obSensors[FRONT_IR_SHARP]->disable();
     return true;
 }
@@ -1638,7 +1652,6 @@ void DETECT_BALL()
             }
             else
             {
-
                 SLIDER_ARM_MOVEMENT(1);
                 DETECT_BALL();
                 return;
@@ -1751,9 +1764,8 @@ void SET_VELOCITY()
 
 void CLEAR_VARIABLES()
 {
-    //CLEARING VARIABLES RELATED TO PID CONTROL
+    // CLEARING VARIABLES RELATED TO PID CONTROL
     I = 0, last_error = 0;
 }
-
 
 //-----------------------------------------------------------------**THE END**-----------------------------------------------------------------------------//
