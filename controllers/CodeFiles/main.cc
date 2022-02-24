@@ -531,7 +531,7 @@ void TASK_MANAGER()
 
         while (robot->step(TIME_STEP) != -1)
         {
-            if (irPanel[0]->getValue() < 100 && irPanel[3]->getValue() < 100 && irPanel[7]->getValue() < 100)
+            if (irPanel[0]->getValue() > 100 && irPanel[3]->getValue() > 100 && irPanel[7]->getValue() > 100)
             {
                 STOP_ROBOT();
                 break;
@@ -743,7 +743,7 @@ void LINE_FOLLOW(bool dotted)
     if (dotted)
     {
         i_unit->enable(TIME_STEP);
-        kp = 1, kd = 1.05, ki = 0.05;
+        kp = 5, kd = 1.05, ki = 0.05;
     }
 
     while (robot->step(TIME_STEP) != -1)
@@ -761,7 +761,11 @@ void LINE_FOLLOW(bool dotted)
                 kp = 0.01, ki = 0, kd = 0.006;
                 acceleration = -3;
             }
-            if (irPanel[0]->getValue() < 100 && irPanel[1]->getValue() < 100 && irPanel[2]->getValue() < 100)
+            else
+            {
+                kp = 5, kd = 1.05, ki = 0.05;
+            }
+            if (irPanel[0]->getValue() > 100 && irPanel[1]->getValue() > 100 && irPanel[2]->getValue() > 100)
             {
                 cout << "DOTTED LINE FOLLOWING TERMINATION" << endl;
                 i_unit->disable();
@@ -1030,7 +1034,7 @@ void COLOR_LINE_FOLLOWING()
         last_error = error;
         correction = (kd * D + kp * P + ki * I) / 80;
 
-        if (irPanel[0]->getValue() < 100 && irPanel[3]->getValue() < 100 && irPanel[7]->getValue() < 100)
+        if (irPanel[0]->getValue() > 100 && irPanel[3]->getValue() > 100 && irPanel[7]->getValue() > 100)
         {
             STOP_ROBOT();
             break;
