@@ -40,7 +40,7 @@ using namespace std;
 #define ARM_DISTANCE_BACKWARD 7.6
 #define CYLINDER_TUNE_ANGLE 5.75
 #define ARM_BASE_DELAY 3
-#define BALL_SELECTION BLUE
+#define BALL_SELECTION RED
 #define CYLINDER_HOLE_ALIGN -1.15
 #define CUBE_HOLE_ALIGN -4.4
 #define HOLE_DEPTH 3
@@ -167,7 +167,7 @@ enum mainTask
 //------------------------------------------------------------------------------------------------------------------------------//
 /* Defining Variables */
 // Task variable
-mainTask CURRENT_TASK = REACH_END;
+mainTask CURRENT_TASK = LINE_FOLLOWING;
 static bool TERMINATION = false;
 /* Tuning parameters regarding robot body */
 const float wheel_radius = 0.033, robot_width = 0.21, turn90_angle = (3.14 * robot_width) / (4 * wheel_radius);
@@ -235,6 +235,7 @@ void TURN_90(short int dir = 0);
 void TURN_ANGLE(float angle = 45, short int dir = 0);
 void GO_FORWARD(float distance_ = CENTER_DISTANCE, short int dir = 0, float deceleration = 0);
 void COLOR_LINE_FOLLOWING();
+void AIM_TO_GOAL();
 
 // ARM RELATED FUNCTIONS
 void BASE_ARM_SWAP(short int f_position = 0, short int c_arm = 0);
@@ -327,6 +328,7 @@ int main(int argc, char **argv)
     laserSensors[RIGHT_LAS] = robot->getDistanceSensor(laserNames);
 
     compass = robot->getCompass("compass");
+    compass->enable(TIME_STEP);
 
     for (int i = 0; i < 9; i++)
     {
@@ -371,7 +373,6 @@ void TASK_MANAGER()
 
     case HOLE_TASK:
         // Hole task
-        compass->enable(TIME_STEP);                 // enabling compass
         laserSensors[RIGHT_LAS]->enable(TIME_STEP); // enabling laser sensor
         DELAY(500);
 
@@ -542,14 +543,15 @@ void TASK_MANAGER()
         CURRENT_TASK = REACH_END;
         break;
     case REACH_END:
+        GO_FORWARD(6);
         LINE_FOLLOW(true);
-        GO_FORWARD();
         if (BALL_COLOR == BLUE)
         {
             GO_FORWARD(5);
         }
         else
         {
+            GO_FORWARD(5);
             TURN_90(), GO_FORWARD(5);
         }
         COLOR_LINE_FOLLOWING();
@@ -557,6 +559,10 @@ void TASK_MANAGER()
         break;
 
     case KICK_BALL:
+        AIM_TO_GOAL();
+        GO_FORWARD(5, 1);
+        BASE_ARM_SWAP(), SLIDER_ARM_MOVEMENT(1);
+        GO_FORWARD(5);
         // kick the ball
         tm_time = robot->getTime();
         while (robot->step(TIME_STEP) != -1)
@@ -743,7 +749,7 @@ void LINE_FOLLOW(bool dotted)
     if (dotted)
     {
         i_unit->enable(TIME_STEP);
-        kp = 5, kd = 1.05, ki = 0.05;
+        kp = 1, kd = 1.05, ki = 0.05;
     }
 
     while (robot->step(TIME_STEP) != -1)
@@ -751,7 +757,7 @@ void LINE_FOLLOW(bool dotted)
         acceleration = 0;
         if (dotted)
         {
-            if (i_unit->getRollPitchYaw()[1] < 0.25)
+            if (i_unit->getRollPitchYaw()[1] < -0.1)
             {
                 kp = 0.9, ki = 0, kd = 0.525;
                 acceleration = 2;
@@ -759,11 +765,11 @@ void LINE_FOLLOW(bool dotted)
             else if (i_unit->getRollPitchYaw()[1] > 0.25)
             {
                 kp = 0.01, ki = 0, kd = 0.006;
-                acceleration = -3;
+                acceleration = -2.5;
             }
             else
             {
-                kp = 5, kd = 1.05, ki = 0.05;
+                kp = 1, kd = 1.05, ki = 0.05;
             }
             if (irPanel[0]->getValue() > 100 && irPanel[1]->getValue() > 100 && irPanel[2]->getValue() > 100)
             {
@@ -787,7 +793,7 @@ void LINE_FOLLOW(bool dotted)
             I = 0;
         }
         double correction = (kd * D + kp * P + ki * I) / 80;
-        left_speed = base_speed + correction + acceleration, right_speed = base_speed - correction + acceleration;
+        left_speed = (base_speed + acceleration) + correction, right_speed = (base_speed + acceleration) - correction;
         SET_VELOCITY();
     }
 
@@ -1046,6 +1052,46 @@ void COLOR_LINE_FOLLOWING()
     return;
 }
 
+void AIM_TO_GOAL()
+{
+    float sonarValue = 0, preValue = 0;
+    sonarValue = SONAR_MAP(FRONT_WALL);
+    if (BALL_COLOR == BLUE)
+    {
+        TURN_ANGLE(7);
+        left_speed = -(base_speed_slow-1);
+        right_speed = (base_speed_slow-1);
+    }
+    else
+    {
+        TURN_ANGLE(7, 1);
+        left_speed = (base_speed_slow-1);
+        right_speed = -(base_speed_slow-1);
+    }
+
+    while (robot->step(TIME_STEP) != -1)
+    {
+        preValue = sonarValue;
+        sonarValue = SONAR_MAP(FRONT_WALL);
+
+        SET_VELOCITY();
+        if (preValue - sonarValue > 5)
+        {
+            STOP_ROBOT();
+            break;
+        }
+    }
+
+    if (BALL_COLOR == BLUE)
+    {
+        TURN_ANGLE(2.5, 1);
+    }
+    else
+    {
+        TURN_ANGLE(2.5);
+    }
+    return;
+}
 // ARM RELATED FUNCTIONS
 void BASE_ARM_SWAP(short int f_position, short int c_arm)
 {
@@ -1549,6 +1595,7 @@ bool ROUND_SEARCH()
 void DETECT_BALL()
 {
     float f_distance = 0, p_distance = 0;
+    Colors color = BLUE;
     ALIGN_TO_DIR(WEST);
     f_distance = SONAR_MAP(FRONT_WALL);
     TURN_ANGLE(30, 1);
@@ -1556,17 +1603,16 @@ void DETECT_BALL()
     {
         p_distance = f_distance;
         f_distance = SONAR_MAP(FRONT_WALL);
-        if (f_distance < 30 && p_distance - f_distance > 5)
+        if (f_distance < 35 && p_distance - f_distance > 5)
         {
             GO_FORWARD(f_distance - ARM_DISTANCE_BALL);
             STOP_ROBOT();
-            DELAY();
             PICK_OBJECT();
             BASE_ARM_SWAP(2);
-            cout << colorNames[COLOR_DETECTION(FRONT_CAMERA)] << endl;
-            GO_FORWARD(f_distance - ARM_DISTANCE_BALL, 1);
+            color = COLOR_DETECTION(FRONT_CAMERA);
+            GO_FORWARD(f_distance, 1);
             ALIGN_TO_DIR(SOUTH);
-            if (BALL_COLOR == COLOR_DETECTION(FRONT_CAMERA))
+            if (BALL_COLOR == color)
             {
                 while (robot->step(TIME_STEP) != -1)
                 {
@@ -1575,7 +1621,7 @@ void DETECT_BALL()
                         STOP_ROBOT();
                         break;
                     }
-                    left_speed = -base_speed, right_speed = -base_speed;
+                    left_speed = base_speed, right_speed = base_speed;
                     SET_VELOCITY();
                 }
                 return;
@@ -1588,7 +1634,7 @@ void DETECT_BALL()
                 return;
             }
         }
-        TURN_ANGLE(0.3, 1);
+        TURN_ANGLE(0.2, 1);
     }
     ALIGN_TO_DIR(NORTH);
     GO_FORWARD(15);
@@ -1717,14 +1763,3 @@ void MAKE_FUN1(holeObjects var)
 }
 
 //-----------------------------------------------------------------**THE END**-----------------------------------------------------------------------------//
-void AIM_GOAL()
-{
-    if (BALL_COLOR == BLUE)
-    {
-        TURN_ANGLE(7);
-    }
-    while (robot->step(TIME_STEP) != -1)
-    {
-        continue;
-    }
-}
