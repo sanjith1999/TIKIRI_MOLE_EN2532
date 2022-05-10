@@ -1,10 +1,10 @@
 ## TIKIRI_MOLE_EN2532
 
-**ROBOT DESIGN AND COMPETITION : WEBOTS STIMULATION OF THE PROPOSED ROBOT MODEL** <br>
-MEMBERS : S.SANJITH, M.N.M. NUSHATH, K.KAJHANAN <br>
-SOFTWARE VERSION : WEBOTS 2021b<br>
+**Robot Design And Competition** : Webot Stimulation of the Proposed Model <br>
+Members : **S.SANJITH, M.N.M. NUSHATH, K.KAJHANAN** <br>
+Software Version : WEBOTS 2021b <br>
 
-Due to the reason of enabling self-collision we stimulated different arm strategy instead of our parallel gripper technique.......
+
 
 
 ***Special Features of the Algorithm***
@@ -15,4 +15,5 @@ Due to the reason of enabling self-collision we stimulated different arm strateg
 + PID control over wall following and line following
 
 ![robot](https://user-images.githubusercontent.com/81277107/167660126-7f7f4e81-b17f-4024-8781-3ac75cd4797b.jpg)
-
+<br>
+Due to the reason of enabling self-collision we stimulated different arm strategy instead of our parallel gripper technique.......
